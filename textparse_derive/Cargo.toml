@@ -1,12 +1,14 @@
 [package]
-name = "textparse"
+name = "textparse_derive"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
-textparse_derive = { version = "0.1", path = "textparse_derive/" }
+[lib]
+proc-macro = true
 
-[workspace]
-members = ["textparse_derive"]
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+syn = "1"

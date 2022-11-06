@@ -1,3 +1,5 @@
+pub use textparse_derive::Span;
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Position(usize);
 

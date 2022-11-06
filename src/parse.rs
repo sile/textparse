@@ -4,6 +4,8 @@ use std::{
     collections::{BTreeMap, HashMap},
 };
 
+pub use textparse_derive::Parse;
+
 pub trait Parse: 'static + Span + Clone + Sized {
     fn parse(parser: &mut Parser) -> ParseResult<Self>;
 }
