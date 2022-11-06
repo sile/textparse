@@ -2,7 +2,10 @@ use proc_macro2::{Ident, Span, TokenStream};
 use proc_macro_crate::FoundCrate;
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
-use syn::{parse_macro_input, parse_quote, Data, DeriveInput, Fields, GenericParam, Generics};
+use syn::{
+    parse_macro_input, parse_quote, Data, DeriveInput, Fields, GenericParam, Generics, Lit, Meta,
+    NestedMeta,
+};
 
 fn crate_name() -> TokenStream {
     let textparse =
@@ -142,7 +145,7 @@ fn generate_span_end_position_method_body(data: &Data) -> TokenStream {
     }
 }
 
-#[proc_macro_derive(Parse)]
+#[proc_macro_derive(Parse, attributes(parse))]
 pub fn derive_parse_trait(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let textparse = crate_name();
     let input = parse_macro_input!(input as DeriveInput);
@@ -150,10 +153,37 @@ pub fn derive_parse_trait(input: proc_macro::TokenStream) -> proc_macro::TokenSt
     let generics = add_parse_trait_bounds(input.generics);
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let parse = generate_parse_fun_body(&input.data);
+    let item_name = if let Some(attrs) = input
+        .attrs
+        .iter()
+        .find(|a| a.path.segments.len() == 1 && a.path.segments[0].ident == "parse")
+    {
+        let Meta::List(meta_list) = attrs.parse_meta().unwrap() else {
+            todo!("{}:{}", module_path!(), line!());
+        };
+        assert_eq!(meta_list.nested.len(), 1);
+
+        let Some(NestedMeta::Meta(Meta::NameValue(name_value))) = meta_list.nested.first() else {
+            todo!("{}:{}", module_path!(), line!());
+        };
+        assert_eq!(name_value.path.segments.len(), 1);
+        assert_eq!(name_value.path.segments[0].ident, "name");
+
+        let Lit::Str(value) = &name_value.lit else {
+            todo!("{}:{}", module_path!(), line!());
+        };
+        quote!(Some(|| #value.to_owned()))
+    } else {
+        quote!(None)
+    };
     let expanded = quote! {
         impl #impl_generics #textparse::Parse for #name #ty_generics #where_clause {
             fn parse(parser: &mut #textparse::Parser) -> #textparse::ParseResult<Self> {
                 #parse
+            }
+
+            fn name() -> Option<fn () -> String> {
+                #item_name
             }
         }
     };

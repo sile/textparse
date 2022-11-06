@@ -31,6 +31,7 @@ struct JsonValue {
 }
 
 #[derive(Clone, Span, Parse)]
+#[parse(name = "a JSON value")]
 enum JsonValueInner {
     Null(JsonNull),
     String(JsonString),
@@ -68,6 +69,7 @@ struct JsonNull {
 }
 
 #[derive(Clone, Span, Parse)]
+#[parse(name = "a JSON string")]
 struct JsonString {
     start: Char<'"'>,
     content: While<IsStringContent>,

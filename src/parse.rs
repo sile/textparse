@@ -9,8 +9,8 @@ pub use textparse_derive::Parse;
 pub trait Parse: 'static + Span + Clone + Sized {
     fn parse(parser: &mut Parser) -> ParseResult<Self>;
 
-    fn name() -> String {
-        std::any::type_name::<Self>().to_owned()
+    fn name() -> Option<fn() -> String> {
+        None
     }
 }
 
@@ -18,22 +18,23 @@ pub trait Parse: 'static + Span + Clone + Sized {
 pub struct Expected {
     position: Position,
     level: usize,
+    // TODO: Add parent
     expected_items: HashMap<TypeId, fn() -> String>,
 }
 
 impl Expected {
-    fn new<T: Parse>(position: Position, level: usize) -> Self {
+    fn new<T: Parse>(position: Position, level: usize, name: fn() -> String) -> Self {
         let mut this = Self {
             position,
             level,
             expected_items: Default::default(),
         };
-        this.add_item::<T>();
+        this.add_item::<T>(name);
         this
     }
 
-    fn add_item<T: Parse>(&mut self) {
-        self.expected_items.insert(TypeId::of::<T>(), T::name);
+    fn add_item<T: Parse>(&mut self, name: fn() -> String) {
+        self.expected_items.insert(TypeId::of::<T>(), name);
     }
 
     pub fn position(&self) -> Position {
@@ -41,7 +42,6 @@ impl Expected {
     }
 
     pub fn items(&self) -> impl '_ + Iterator<Item = String> {
-        dbg!(self.level);
         self.expected_items.values().map(|f| f())
     }
 }
@@ -96,11 +96,20 @@ impl<'a> Parser<'a> {
 
         let start = self.position;
 
-        self.update_expected::<T>();
+        let has_name = if let Some(name) = T::name() {
+            self.update_expected::<T>(name);
+            true
+        } else {
+            false
+        };
         self.set_parse_result::<T>(start, Err(ParseError));
-        self.level += 1;
+        if has_name {
+            self.level += 1;
+        }
         let result = T::parse(self);
-        self.level -= 1;
+        if has_name {
+            self.level -= 1;
+        }
         self.set_parse_result(start, result.clone());
 
         if result.is_err() {
@@ -125,14 +134,14 @@ impl<'a> Parser<'a> {
             })
     }
 
-    fn update_expected<T: Parse>(&mut self) {
+    fn update_expected<T: Parse>(&mut self, name: fn() -> String) {
         if self.expected.position < self.position {
-            self.expected = Expected::new::<T>(self.position, self.level);
+            self.expected = Expected::new::<T>(self.position, self.level, name);
         } else if self.position == self.expected.position {
             if self.expected.level == self.level {
-                self.expected.add_item::<T>();
+                self.expected.add_item::<T>(name);
             } else if self.level < self.expected.level {
-                self.expected = Expected::new::<T>(self.position, self.level);
+                self.expected = Expected::new::<T>(self.position, self.level, name);
             }
         }
     }

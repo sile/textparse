@@ -67,10 +67,6 @@ impl<T: Parse> Parse for Maybe<T> {
     fn parse(parser: &mut Parser) -> ParseResult<Self> {
         parser.parse().map(Self)
     }
-
-    fn name() -> String {
-        T::name()
-    }
 }
 
 #[derive(Debug)]
@@ -162,8 +158,8 @@ impl<const T: char> Parse for Char<T> {
         }
     }
 
-    fn name() -> String {
-        format!("{:?}", T)
+    fn name() -> Option<fn() -> String> {
+        Some(|| format!("{:?}", T))
     }
 }
 
@@ -208,8 +204,8 @@ impl<T: StaticStr> Parse for StartsWith<T> {
         }
     }
 
-    fn name() -> String {
-        format!("{:?}", T::static_str())
+    fn name() -> Option<fn() -> String> {
+        Some(|| format!("{:?}", T::static_str()))
     }
 }
 
