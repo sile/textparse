@@ -15,6 +15,9 @@ fn main() -> Result<()> {
     } else {
         // TODO
         println!("[NG] Input is not a JSON text.");
+        let expected = parser.expected();
+        println!("Position: {:?}", expected.position());
+        println!("Items: {:?}", expected.items().collect::<Vec<_>>());
     }
     Ok(())
 }
