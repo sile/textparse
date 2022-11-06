@@ -22,13 +22,8 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-// TODO: use tuple struct
 #[derive(Clone, Span, Parse)]
-struct JsonValue {
-    _skip0: SkipWhitespaces,
-    value: JsonValueInner,
-    _skip1: SkipWhitespaces,
-}
+struct JsonValue(WithoutWhitespaces<JsonValueInner>);
 
 #[derive(Clone, Span, Parse)]
 #[parse(name = "a JSON value")]
@@ -41,45 +36,33 @@ enum JsonValueInner {
 }
 
 #[derive(Clone, Span, Parse)]
-struct JsonObject {
-    open: Char<'{'>,
-    items: Items<JsonObjectItem, Char<','>>,
-    close: Char<'}'>,
-}
-
-#[derive(Clone, Span, Parse)]
-struct JsonObjectItem {
-    _skip0: SkipWhitespaces,
-    key: JsonString,
-    _skip1: SkipWhitespaces,
-    delimiter: Char<':'>,
-    value: JsonValue,
-}
-
-#[derive(Clone, Span, Parse)]
-struct JsonArray {
-    open: Char<'['>,
-    items: Items<JsonValue, Char<','>>,
-    close: Char<']'>,
-}
-
-#[derive(Clone, Span, Parse)]
-struct JsonNull {
-    null: StartsWith<Null>,
-}
+#[parse(name = "`null`")]
+struct JsonNull(StartsWith<Null>);
 
 #[derive(Clone, Span, Parse)]
 #[parse(name = "a JSON string")]
-struct JsonString {
-    start: Char<'"'>,
-    content: While<IsStringContent>,
-    end: Char<'"'>,
-}
+struct JsonString(Char<'"'>, While<IsStringContent>, Char<'"'>);
 
 #[derive(Clone, Span, Parse)]
-struct JsonNumber {
-    digits: NonEmpty<While<IsDigit>>,
-}
+#[parse(name = "a JSON number")]
+struct JsonNumber(NonEmpty<While<IsDigit>>);
+
+#[derive(Clone, Span, Parse)]
+#[parse(name = "a JSON array")]
+struct JsonArray(Char<'['>, Csv<JsonValue>, Char<']'>);
+
+#[derive(Clone, Span, Parse)]
+#[parse(name = "a JSON object")]
+struct JsonObject(Char<'{'>, Csv<JsonObjectItem>, Char<'}'>);
+
+#[derive(Clone, Span, Parse)]
+struct JsonObjectItem(WithoutWhitespaces<JsonString>, Char<':'>, JsonValue);
+
+#[derive(Clone, Span, Parse)]
+struct Csv<T>(Items<T, Char<','>>);
+
+#[derive(Clone, Span, Parse)]
+struct WithoutWhitespaces<T>(SkipWhitespaces, T, SkipWhitespaces);
 
 struct Null;
 impl StaticStr for Null {

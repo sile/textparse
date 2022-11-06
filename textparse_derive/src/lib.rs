@@ -3,8 +3,8 @@ use proc_macro_crate::FoundCrate;
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{
-    parse_macro_input, parse_quote, Data, DeriveInput, Fields, GenericParam, Generics, Lit, Meta,
-    NestedMeta,
+    parse_macro_input, parse_quote, Data, DeriveInput, Fields, GenericParam, Generics, Index, Lit,
+    Meta, NestedMeta,
 };
 
 fn crate_name() -> TokenStream {
@@ -52,14 +52,14 @@ fn add_span_trait_bounds(mut generics: Generics) -> Generics {
 }
 
 fn generate_span_start_position_method_body(data: &Data) -> TokenStream {
-    match *data {
-        Data::Struct(ref data) => match data.fields {
-            Fields::Named(ref fields) => {
+    match data {
+        Data::Struct(data) => match &data.fields {
+            Fields::Named(fields) => {
                 let position = fields.named.iter().map(|f| {
                     let name = &f.ident;
                     quote_spanned! {
                         f.span() => {
-                            position = self.#name.end_position();
+                            position = self.#name.start_position();
                             if !position.is_empty() {
                                 return position;
                             }
@@ -72,13 +72,27 @@ fn generate_span_start_position_method_body(data: &Data) -> TokenStream {
                     position
                 }
             }
-            Fields::Unnamed(ref fields) => {
-                assert_eq!(fields.unnamed.len(), 1);
-                quote! { self.0.start_position() }
+            Fields::Unnamed(fields) => {
+                let position = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                    let i = Index::from(i);
+                    quote_spanned! {
+                        f.span() => {
+                            position = self.#i.start_position();
+                            if !position.is_empty() {
+                                return position;
+                            }
+                        }
+                    }
+                });
+                quote! {
+                    let mut position = Default::default();
+                    #(#position)*
+                    position
+                }
             }
             Fields::Unit => unimplemented!(),
         },
-        Data::Enum(ref data) => {
+        Data::Enum(data) => {
             let arms = data.variants.iter().map(|variant| {
                 let name = &variant.ident;
                 if let Fields::Unnamed(fields) = &variant.fields {
@@ -99,9 +113,9 @@ fn generate_span_start_position_method_body(data: &Data) -> TokenStream {
 }
 
 fn generate_span_end_position_method_body(data: &Data) -> TokenStream {
-    match *data {
-        Data::Struct(ref data) => match data.fields {
-            Fields::Named(ref fields) => {
+    match data {
+        Data::Struct(data) => match &data.fields {
+            Fields::Named(fields) => {
                 let position = fields.named.iter().rev().map(|f| {
                     let name = &f.ident;
                     quote_spanned! {
@@ -119,13 +133,27 @@ fn generate_span_end_position_method_body(data: &Data) -> TokenStream {
                     position
                 }
             }
-            Fields::Unnamed(ref fields) => {
-                assert_eq!(fields.unnamed.len(), 1);
-                quote! { self.0.end_position() }
+            Fields::Unnamed(fields) => {
+                let position = fields.unnamed.iter().enumerate().rev().map(|(i, f)| {
+                    let i = Index::from(i);
+                    quote_spanned! {
+                        f.span() => {
+                            position = self.#i.end_position();
+                            if !position.is_empty() {
+                                return position;
+                            }
+                        }
+                    }
+                });
+                quote! {
+                    let mut position = Default::default();
+                    #(#position)*
+                    position
+                }
             }
             Fields::Unit => unimplemented!(),
         },
-        Data::Enum(ref data) => {
+        Data::Enum(data) => {
             let arms = data.variants.iter().map(|variant| {
                 let name = &variant.ident;
                 if let Fields::Unnamed(fields) = &variant.fields {
@@ -215,8 +243,14 @@ fn generate_parse_fun_body(data: &Data) -> TokenStream {
                 }
             }
             Fields::Unnamed(fields) => {
-                assert_eq!(fields.unnamed.len(), 1);
-                quote! { parser.parse().map(Self) }
+                let parse = fields.unnamed.iter().map(|f| {
+                    quote_spanned! { f.span() => parser.parse()? }
+                });
+                quote! {
+                    Ok(Self(
+                        #(#parse ,)*
+                    ))
+                }
             }
             Fields::Unit => unimplemented!(),
         },
