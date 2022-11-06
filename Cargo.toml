@@ -9,4 +9,7 @@ edition = "2021"
 textparse_derive = { version = "0.1", path = "textparse_derive/" }
 
 [workspace]
-members = ["textparse_derive"]
+members = [
+        "textparse_derive",
+        "examples/parse_json",
+]
