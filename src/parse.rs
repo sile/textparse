@@ -9,8 +9,8 @@ pub use textparse_derive::Parse;
 pub trait Parse: 'static + Span + Clone + Sized {
     fn parse(parser: &mut Parser) -> ParseResult<Self>;
 
-    fn name() -> &'static str {
-        std::any::type_name::<Self>()
+    fn name() -> String {
+        std::any::type_name::<Self>().to_owned()
     }
 }
 
@@ -18,20 +18,22 @@ pub trait Parse: 'static + Span + Clone + Sized {
 pub struct Expected {
     position: Position,
     level: usize,
-    expected_items: HashMap<TypeId, &'static str>,
+    expected_items: HashMap<TypeId, fn() -> String>,
 }
 
 impl Expected {
     fn new<T: Parse>(position: Position, level: usize) -> Self {
-        Self {
+        let mut this = Self {
             position,
             level,
-            expected_items: [(TypeId::of::<T>(), T::name())].into_iter().collect(),
-        }
+            expected_items: Default::default(),
+        };
+        this.add_item::<T>();
+        this
     }
 
     fn add_item<T: Parse>(&mut self) {
-        self.expected_items.insert(TypeId::of::<T>(), T::name());
+        self.expected_items.insert(TypeId::of::<T>(), T::name);
     }
 }
 
@@ -67,8 +69,11 @@ impl<'a> Parser<'a> {
         &self.text[self.position.get()..]
     }
 
-    pub fn consume_bytes(&mut self, n: usize) {
+    pub fn consume_bytes(&mut self, n: usize) -> (Position, Position) {
+        let before = self.position;
         self.position = Position::new(std::cmp::min(self.text.len(), self.position.get() + n));
+        let after = self.position;
+        (before, after)
     }
 
     pub fn parse<T: Parse>(&mut self) -> ParseResult<T> {

@@ -1,4 +1,6 @@
-use crate::{Parse, ParseResult, Parser, Position, Span};
+use std::marker::PhantomData;
+
+use crate::{Parse, ParseError, ParseResult, Parser, Position, Span};
 
 #[derive(Debug, Clone, Span)]
 pub struct Null {
@@ -66,7 +68,101 @@ impl<T: Parse> Parse for Maybe<T> {
         parser.parse().map(Self)
     }
 
-    fn name() -> &'static str {
+    fn name() -> String {
         T::name()
+    }
+}
+
+#[derive(Debug, Clone, Span)]
+pub struct Char<const T: char> {
+    start_position: Position,
+    end_position: Position,
+}
+
+impl<const T: char> Parse for Char<T> {
+    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+        if parser.remaining_text().chars().next() == Some(T) {
+            let (start_position, end_position) = parser.consume_bytes(T.len_utf8());
+            Ok(Self {
+                start_position,
+                end_position,
+            })
+        } else {
+            Err(ParseError)
+        }
+    }
+
+    fn name() -> String {
+        format!("{:?}", T)
+    }
+}
+
+#[derive(Debug)]
+pub struct While<P> {
+    start_position: Position,
+    end_position: Position,
+    _predicate: PhantomData<P>,
+}
+
+impl<P> Clone for While<P> {
+    fn clone(&self) -> Self {
+        Self {
+            start_position: self.start_position.clone(),
+            end_position: self.end_position.clone(),
+            _predicate: self._predicate,
+        }
+    }
+}
+
+impl<P> Span for While<P> {
+    fn start_position(&self) -> Position {
+        self.start_position
+    }
+
+    fn end_position(&self) -> Position {
+        self.end_position
+    }
+}
+
+impl<P: Predicate> Parse for While<P> {
+    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+        let n = parser
+            .remaining_text()
+            .chars()
+            .take_while(|c| P::is(*c))
+            .map(|c| c.len_utf8())
+            .sum();
+        let (start_position, end_position) = parser.consume_bytes(n);
+        Ok(Self {
+            start_position,
+            end_position,
+            _predicate: PhantomData,
+        })
+    }
+}
+
+pub trait Predicate: 'static {
+    fn is(c: char) -> bool;
+}
+
+#[derive(Debug)]
+struct IsWhiteSpace;
+
+impl Predicate for IsWhiteSpace {
+    fn is(c: char) -> bool {
+        c.is_ascii_whitespace()
+    }
+}
+
+#[derive(Debug, Clone, Span, Parse)]
+pub struct Whitespaces(While<IsWhiteSpace>);
+
+#[derive(Debug, Clone, Span)]
+pub struct SkipWhitespaces(Null);
+
+impl Parse for SkipWhitespaces {
+    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+        parser.parse::<Whitespaces>()?;
+        parser.parse().map(Self)
     }
 }
