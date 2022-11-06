@@ -52,11 +52,21 @@ fn generate_span_start_position_method_body(data: &Data) -> TokenStream {
     match *data {
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
-                if let Some(field) = fields.named.first() {
-                    let name = &field.ident;
-                    quote! { self.#name.start_position() }
-                } else {
-                    unimplemented!()
+                let position = fields.named.iter().map(|f| {
+                    let name = &f.ident;
+                    quote_spanned! {
+                        f.span() => {
+                            position = self.#name.end_position();
+                            if !position.is_empty() {
+                                return position;
+                            }
+                        }
+                    }
+                });
+                quote! {
+                    let mut position = Default::default();
+                    #(#position)*
+                    position
                 }
             }
             Fields::Unnamed(ref fields) => {
@@ -89,11 +99,21 @@ fn generate_span_end_position_method_body(data: &Data) -> TokenStream {
     match *data {
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
-                if let Some(field) = fields.named.last() {
-                    let name = &field.ident;
-                    quote! { self.#name.end_position() }
-                } else {
-                    unimplemented!()
+                let position = fields.named.iter().rev().map(|f| {
+                    let name = &f.ident;
+                    quote_spanned! {
+                        f.span() => {
+                            position = self.#name.end_position();
+                            if !position.is_empty() {
+                                return position;
+                            }
+                        }
+                    }
+                });
+                quote! {
+                    let mut position = Default::default();
+                    #(#position)*
+                    position
                 }
             }
             Fields::Unnamed(ref fields) => {
