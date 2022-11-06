@@ -1,10 +1,24 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, Span, TokenStream};
+use proc_macro_crate::FoundCrate;
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, parse_quote, Data, DeriveInput, Fields, GenericParam, Generics};
 
+fn crate_name() -> TokenStream {
+    let textparse =
+        proc_macro_crate::crate_name("textparse").expect("textparse is persent in `Cargo.toml`");
+    match textparse {
+        FoundCrate::Itself => quote!(crate),
+        FoundCrate::Name(name) => {
+            let ident = Ident::new(&name, Span::call_site());
+            quote!( #ident )
+        }
+    }
+}
+
 #[proc_macro_derive(Span)]
 pub fn derive_span_trait(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let textparse = crate_name();
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
     let generics = add_span_trait_bounds(input.generics);
@@ -12,11 +26,11 @@ pub fn derive_span_trait(input: proc_macro::TokenStream) -> proc_macro::TokenStr
     let start_position = generate_span_start_position_method_body(&input.data);
     let end_position = generate_span_end_position_method_body(&input.data);
     let expanded = quote! {
-        impl #impl_generics ::textparse::Span for #name #ty_generics #where_clause {
-            fn start_position(&self) -> ::textparse::Position {
+        impl #impl_generics #textparse::Span for #name #ty_generics #where_clause {
+            fn start_position(&self) -> #textparse::Position {
                 #start_position
             }
-            fn end_position(&self) -> ::textparse::Position {
+            fn end_position(&self) -> #textparse::Position {
                 #end_position
             }
         }
@@ -25,9 +39,10 @@ pub fn derive_span_trait(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 }
 
 fn add_span_trait_bounds(mut generics: Generics) -> Generics {
+    let textparse = crate_name();
     for param in &mut generics.params {
         if let GenericParam::Type(ref mut type_param) = *param {
-            type_param.bounds.push(parse_quote!(::textparse::Span));
+            type_param.bounds.push(parse_quote!(#textparse::Span));
         }
     }
     generics
@@ -109,15 +124,15 @@ fn generate_span_end_position_method_body(data: &Data) -> TokenStream {
 
 #[proc_macro_derive(Parse)]
 pub fn derive_parse_trait(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let textparse = crate_name();
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
     let generics = add_parse_trait_bounds(input.generics);
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let parse = generate_parse_fun_body(&input.data);
     let expanded = quote! {
-        impl #impl_generics ::textparse::Parse for #name #ty_generics #where_clause {
-            fn parse(parser: &mut ::textparse::Parser) -> ::textparse::ParseResult<Self> {
-                use orfail::OrFail;
+        impl #impl_generics #textparse::Parse for #name #ty_generics #where_clause {
+            fn parse(parser: &mut #textparse::Parser) -> #textparse::ParseResult<Self> {
                 #parse
             }
         }
@@ -126,15 +141,17 @@ pub fn derive_parse_trait(input: proc_macro::TokenStream) -> proc_macro::TokenSt
 }
 
 fn add_parse_trait_bounds(mut generics: Generics) -> Generics {
+    let textparse = crate_name();
     for param in &mut generics.params {
         if let GenericParam::Type(ref mut type_param) = *param {
-            type_param.bounds.push(parse_quote!(::textparse::Parse));
+            type_param.bounds.push(parse_quote!(#textparse::Parse));
         }
     }
     generics
 }
 
 fn generate_parse_fun_body(data: &Data) -> TokenStream {
+    let textparse = crate_name();
     match *data {
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
@@ -168,7 +185,7 @@ fn generate_parse_fun_body(data: &Data) -> TokenStream {
             });
             quote! {
                 #( #arms )*
-                Err(::textparse::ParseError::Failed)
+                Err(#textparse::ParseError::Failed)
             }
         }
         Data::Union(_) => unimplemented!(),
