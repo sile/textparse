@@ -55,40 +55,11 @@ fn generate_span_start_position_method_body(data: &Data) -> TokenStream {
     match data {
         Data::Struct(data) => match &data.fields {
             Fields::Named(fields) => {
-                let position = fields.named.iter().map(|f| {
-                    let name = &f.ident;
-                    quote_spanned! {
-                        f.span() => {
-                            position = self.#name.start_position();
-                            if !position.is_empty() {
-                                return position;
-                            }
-                        }
-                    }
-                });
-                quote! {
-                    let mut position = Default::default();
-                    #(#position)*
-                    position
-                }
+                let name = &(&fields.named[0]).ident;
+                quote! { self.#name.start_position() }
             }
-            Fields::Unnamed(fields) => {
-                let position = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                    let i = Index::from(i);
-                    quote_spanned! {
-                        f.span() => {
-                            position = self.#i.start_position();
-                            if !position.is_empty() {
-                                return position;
-                            }
-                        }
-                    }
-                });
-                quote! {
-                    let mut position = Default::default();
-                    #(#position)*
-                    position
-                }
+            Fields::Unnamed(_fields) => {
+                quote! { self.0.start_position() }
             }
             Fields::Unit => unimplemented!(),
         },
@@ -116,40 +87,14 @@ fn generate_span_end_position_method_body(data: &Data) -> TokenStream {
     match data {
         Data::Struct(data) => match &data.fields {
             Fields::Named(fields) => {
-                let position = fields.named.iter().rev().map(|f| {
-                    let name = &f.ident;
-                    quote_spanned! {
-                        f.span() => {
-                            position = self.#name.end_position();
-                            if !position.is_empty() {
-                                return position;
-                            }
-                        }
-                    }
-                });
-                quote! {
-                    let mut position = Default::default();
-                    #(#position)*
-                    position
-                }
+                let Some(name) = fields.named.iter().last().map(|f| &f.ident) else {
+                    panic!();
+                };
+                quote! { self.#name.end_position() }
             }
             Fields::Unnamed(fields) => {
-                let position = fields.unnamed.iter().enumerate().rev().map(|(i, f)| {
-                    let i = Index::from(i);
-                    quote_spanned! {
-                        f.span() => {
-                            position = self.#i.end_position();
-                            if !position.is_empty() {
-                                return position;
-                            }
-                        }
-                    }
-                });
-                quote! {
-                    let mut position = Default::default();
-                    #(#position)*
-                    position
-                }
+                let i = Index::from(fields.unnamed.len() - 1);
+                quote! { self.#i.end_position() }
             }
             Fields::Unit => unimplemented!(),
         },

@@ -70,12 +70,39 @@ impl<'a> Parser<'a> {
         self.position
     }
 
+    pub fn set_current_position(&mut self, position: Position) {
+        self.position = position; // TODO: min(text.len, position)
+    }
+
     pub fn is_eos(&self) -> bool {
         !(self.text.len() < self.position.get())
     }
 
     pub fn remaining_text(&self) -> &str {
         &self.text[self.position.get()..]
+    }
+
+    pub fn peek_char(&self) -> Option<char> {
+        self.remaining_text().chars().next()
+    }
+
+    pub fn read_char(&mut self) -> Option<char> {
+        if let Some(c) = self.peek_char() {
+            self.consume_bytes(c.len_utf8());
+            Some(c)
+        } else {
+            None
+        }
+    }
+
+    pub fn consume_chars(&mut self, n: usize) -> (Position, Position) {
+        let n = self
+            .remaining_text()
+            .chars()
+            .take(n)
+            .map(|c| c.len_utf8())
+            .sum();
+        self.consume_bytes(n)
     }
 
     pub fn consume_bytes(&mut self, n: usize) -> (Position, Position) {

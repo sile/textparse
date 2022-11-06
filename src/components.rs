@@ -70,23 +70,23 @@ impl<T: Parse> Parse for Maybe<T> {
 }
 
 #[derive(Debug)]
-pub struct While<P> {
+pub struct Until<T> {
     start_position: Position,
     end_position: Position,
-    _predicate: PhantomData<P>,
+    _phantom: PhantomData<T>,
 }
 
-impl<P> Clone for While<P> {
+impl<T> Clone for Until<T> {
     fn clone(&self) -> Self {
         Self {
-            start_position: self.start_position.clone(),
-            end_position: self.end_position.clone(),
-            _predicate: self._predicate,
+            start_position: self.start_position,
+            end_position: self.end_position,
+            _phantom: self._phantom,
         }
     }
 }
 
-impl<P> Span for While<P> {
+impl<T> Span for Until<T> {
     fn start_position(&self) -> Position {
         self.start_position
     }
@@ -96,38 +96,74 @@ impl<P> Span for While<P> {
     }
 }
 
-impl<P: Predicate> Parse for While<P> {
+impl<T: Parse> Parse for Until<T> {
     fn parse(parser: &mut Parser) -> ParseResult<Self> {
-        let n = parser
-            .remaining_text()
-            .chars()
-            .take_while(|c| P::is(*c))
-            .map(|c| c.len_utf8())
-            .sum();
-        let (start_position, end_position) = parser.consume_bytes(n);
+        let start_position = parser.current_position();
+        let mut end_position = parser.current_position();
+        while !parser.parse::<T>().is_ok() {
+            if let Some(c) = parser.remaining_text().chars().next() {
+                parser.consume_bytes(c.len_utf8());
+                end_position = parser.current_position();
+            } else {
+                return Err(ParseError);
+            }
+        }
+        parser.set_current_position(end_position);
         Ok(Self {
             start_position,
             end_position,
-            _predicate: PhantomData,
+            _phantom: PhantomData,
         })
     }
 }
 
-pub trait Predicate: 'static {
-    fn is(c: char) -> bool;
+#[derive(Debug, Clone, Span)]
+pub struct While<T> {
+    start_position: Position,
+    _phantom: PhantomData<T>,
+    end_position: Position,
 }
 
-#[derive(Debug)]
-struct IsWhiteSpace;
+impl<T: Parse> Parse for While<T> {
+    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+        let start_position = parser.current_position();
+        while parser.parse::<T>().is_ok() {}
+        let end_position = parser.current_position();
+        Ok(Self {
+            start_position,
+            end_position,
+            _phantom: PhantomData,
+        })
+    }
+}
 
-impl Predicate for IsWhiteSpace {
-    fn is(c: char) -> bool {
-        c.is_ascii_whitespace()
+#[derive(Debug, Clone, Span)]
+pub struct Whitespace {
+    start_position: Position,
+    end_position: Position,
+}
+
+impl Parse for Whitespace {
+    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+        if parser
+            .remaining_text()
+            .chars()
+            .next()
+            .map_or(false, |c| c.is_ascii_whitespace())
+        {
+            let (start_position, end_position) = parser.consume_chars(1);
+            Ok(Self {
+                start_position,
+                end_position,
+            })
+        } else {
+            Err(ParseError)
+        }
     }
 }
 
 #[derive(Debug, Clone, Span, Parse)]
-pub struct Whitespaces(While<IsWhiteSpace>);
+pub struct Whitespaces(While<Whitespace>);
 
 #[derive(Debug, Clone, Span)]
 pub struct SkipWhitespaces(Empty);

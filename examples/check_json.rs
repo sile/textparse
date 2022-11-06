@@ -1,8 +1,8 @@
 use orfail::{OrFail, Result};
 use std::io::Read;
 use textparse::{
-    components::{Char, Items, NonEmpty, Predicate, SkipWhitespaces, StartsWith, StaticStr, While},
-    Parse, ParseResult, Parser, Position, Span,
+    components::{Char, Items, NonEmpty, SkipWhitespaces, StartsWith, StaticStr, Until, While},
+    Parse, ParseError, ParseResult, Parser, Position, Span,
 };
 
 fn main() -> Result<()> {
@@ -41,11 +41,11 @@ struct JsonNull(StartsWith<Null>);
 
 #[derive(Clone, Span, Parse)]
 #[parse(name = "a JSON string")]
-struct JsonString(Char<'"'>, While<IsStringContent>, Char<'"'>);
+struct JsonString(Char<'"'>, Until<Char<'"'>>, Char<'"'>);
 
 #[derive(Clone, Span, Parse)]
 #[parse(name = "a JSON number")]
-struct JsonNumber(NonEmpty<While<IsDigit>>);
+struct JsonNumber(NonEmpty<While<Digit>>);
 
 #[derive(Clone, Span, Parse)]
 #[parse(name = "a JSON array")]
@@ -71,16 +71,15 @@ impl StaticStr for Null {
     }
 }
 
-struct IsStringContent;
-impl Predicate for IsStringContent {
-    fn is(c: char) -> bool {
-        c != '"'
-    }
-}
-
-struct IsDigit;
-impl Predicate for IsDigit {
-    fn is(c: char) -> bool {
-        c.is_ascii_digit()
+#[derive(Debug, Clone, Span)]
+struct Digit(Position, Position);
+impl Parse for Digit {
+    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+        parser
+            .peek_char()
+            .filter(|c| c.is_ascii_digit())
+            .ok_or(ParseError)?;
+        let (start, end) = parser.consume_chars(1);
+        Ok(Self(start, end))
     }
 }
