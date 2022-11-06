@@ -319,3 +319,24 @@ impl<T: Parse> Parse for NonEmpty<T> {
         }
     }
 }
+
+#[derive(Debug, Clone, Span)]
+pub struct Eos {
+    position: Position,
+}
+
+impl Parse for Eos {
+    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+        if parser.is_eos() {
+            Ok(Self {
+                position: parser.current_position(),
+            })
+        } else {
+            Err(ParseError)
+        }
+    }
+
+    fn name() -> Option<fn() -> String> {
+        Some(|| "EOS".to_owned())
+    }
+}

@@ -1,7 +1,9 @@
 use orfail::{OrFail, Result};
 use std::io::Read;
 use textparse::{
-    components::{Char, Items, NonEmpty, SkipWhitespaces, StartsWith, StaticStr, Until, While},
+    components::{
+        Char, Eos, Items, NonEmpty, SkipWhitespaces, StartsWith, StaticStr, Until, While,
+    },
     Parse, ParseError, ParseResult, Parser, Position, Span,
 };
 
@@ -10,14 +12,13 @@ fn main() -> Result<()> {
     std::io::stdin().read_to_string(&mut text).or_fail()?;
 
     let mut parser = Parser::new(&text);
-    if parser.parse::<JsonValue>().is_ok() && parser.is_eos() {
-        println!("[OK] Input is a JSON text.");
+    if parser.parse::<(JsonValue, SkipWhitespaces, Eos)>().is_ok() {
+        println!("OK: the input string is a JSON text.");
     } else {
-        // TODO
-        println!("[NG] Input is not a JSON text.");
-        let expected = parser.expected();
-        println!("Position: {:?}", expected.position());
-        println!("Items: {:?}", expected.items().collect::<Vec<_>>());
+        println!(
+            "Error: {}",
+            parser.error_message_builder().filename("<STDIN>").build()
+        );
     }
     Ok(())
 }

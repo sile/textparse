@@ -14,11 +14,157 @@ pub trait Parse: 'static + Span + Clone + Sized {
     }
 }
 
+impl<T0: Parse, T1: Parse> Parse for (T0, T1) {
+    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+        Ok((parser.parse()?, parser.parse()?))
+    }
+}
+
+impl<T0: Parse, T1: Parse, T2: Parse> Parse for (T0, T1, T2) {
+    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+        Ok((parser.parse()?, parser.parse()?, parser.parse()?))
+    }
+}
+
+impl<T0: Parse, T1: Parse, T2: Parse, T3: Parse> Parse for (T0, T1, T2, T3) {
+    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+        Ok((
+            parser.parse()?,
+            parser.parse()?,
+            parser.parse()?,
+            parser.parse()?,
+        ))
+    }
+}
+
+impl<T0: Parse, T1: Parse, T2: Parse, T3: Parse, T4: Parse> Parse for (T0, T1, T2, T3, T4) {
+    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+        Ok((
+            parser.parse()?,
+            parser.parse()?,
+            parser.parse()?,
+            parser.parse()?,
+            parser.parse()?,
+        ))
+    }
+}
+
+#[derive(Debug)]
+pub struct ErrorMessageBuilder<'a> {
+    text: &'a str,
+    expected: &'a Expected,
+    filename: String,
+}
+
+impl<'a> ErrorMessageBuilder<'a> {
+    fn new(text: &'a str, expected: &'a Expected) -> Self {
+        Self {
+            text,
+            expected,
+            filename: "<UNKNOWN>".to_owned(),
+        }
+    }
+
+    pub fn filename(mut self, filename: &str) -> Self {
+        self.filename = filename.to_owned();
+        self
+    }
+
+    pub fn build(self) -> String {
+        self.try_build().expect("unreachable")
+    }
+
+    fn line_and_column(&self) -> (usize, usize) {
+        let offset = self.expected.position.get();
+        let mut line = 1;
+        let mut column = 1;
+        for c in self.text[..offset].chars() {
+            if c == '\n' {
+                line += 1;
+                column = 1;
+            } else {
+                column += 1;
+            }
+        }
+        (line, column)
+    }
+
+    // fn expected_message(&self) -> String {
+    //     let mut expected_items = self.expected.items().collect::<Vec<_>>();
+    //     expected_items.sort();
+    //     match expected_items.len() {
+    //         0 => String::new(),
+    //         1 => {
+    //             s += &format!("expected {}", expected_items[0]);
+    //         }
+    //         n => {
+    //             s += &format!("expected one of {}", expected_items[0]);
+    //             for (i, item) in expected_items.iter().enumerate().skip(1) {
+    //                 if i + 1 == n {
+    //                     s += &format!(", or {}", item);
+    //                 } else {
+    //                     s += &format!(", {}", item);
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
+
+    fn try_build(self) -> Result<String, std::io::Error> {
+        let offset = self.expected.position.get();
+        let (line, column) = self.line_and_column();
+
+        let mut s = String::new();
+
+        let mut expected_items = self.expected.items().collect::<Vec<_>>();
+        expected_items.sort();
+        match expected_items.len() {
+            0 => {}
+            1 => {
+                s += &format!("expected {}", expected_items[0]);
+            }
+            n => {
+                s += &format!("expected one of {}", expected_items[0]);
+                for (i, item) in expected_items.iter().enumerate().skip(1) {
+                    if i + 1 == n {
+                        s += &format!(", or {}", item);
+                    } else {
+                        s += &format!(", {}", item);
+                    }
+                }
+            }
+        }
+        let expected_message = s.clone();
+
+        if offset == self.text.len() {
+            s += ", reached EOS";
+        }
+        s += "\n";
+
+        s += &format!("  --> {}:{}:{}\n", self.filename, line, column);
+
+        let line_len = format!("{}", line).len();
+        s += &format!("{:line_len$} |\n", ' ');
+        s += &format!(
+            "{} | {}\n",
+            line_len,
+            self.text[offset + 1 - column..]
+                .lines()
+                .next()
+                .expect("unreachable")
+        );
+        s += &format!(
+            "{:line_len$} | {:>column$} {}\n",
+            ' ', '^', expected_message
+        );
+        Ok(s)
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Expected {
     position: Position,
     level: usize,
-    // TODO: Add parent
     expected_items: HashMap<TypeId, fn() -> String>,
 }
 
@@ -66,16 +212,20 @@ impl<'a> Parser<'a> {
         }
     }
 
+    pub fn error_message_builder(&self) -> ErrorMessageBuilder {
+        ErrorMessageBuilder::new(self.text, &self.expected)
+    }
+
     pub fn current_position(&self) -> Position {
         self.position
     }
 
     pub fn set_current_position(&mut self, position: Position) {
-        self.position = position; // TODO: min(text.len, position)
+        self.position = Position::new(std::cmp::min(self.text.len(), position.get()));
     }
 
     pub fn is_eos(&self) -> bool {
-        !(self.text.len() < self.position.get())
+        self.text.len() == self.position.get()
     }
 
     pub fn remaining_text(&self) -> &str {

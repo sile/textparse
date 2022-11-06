@@ -61,3 +61,43 @@ impl<T: Span> Span for &T {
         (**self).end_position()
     }
 }
+
+impl<T0: Span, T1: Span> Span for (T0, T1) {
+    fn start_position(&self) -> Position {
+        self.0.start_position()
+    }
+
+    fn end_position(&self) -> Position {
+        self.1.end_position()
+    }
+}
+
+impl<T0: Span, T1: Span, T2: Span> Span for (T0, T1, T2) {
+    fn start_position(&self) -> Position {
+        self.0.start_position()
+    }
+
+    fn end_position(&self) -> Position {
+        self.2.end_position()
+    }
+}
+
+impl<T0: Span, T1: Span, T2: Span, T3: Span> Span for (T0, T1, T2, T3) {
+    fn start_position(&self) -> Position {
+        self.0.start_position()
+    }
+
+    fn end_position(&self) -> Position {
+        self.3.end_position()
+    }
+}
+
+impl<T0: Span, T1: Span, T2: Span, T3: Span, T4: Span> Span for (T0, T1, T2, T3, T4) {
+    fn start_position(&self) -> Position {
+        self.0.start_position()
+    }
+
+    fn end_position(&self) -> Position {
+        self.4.end_position()
+    }
+}
