@@ -69,31 +69,11 @@ impl<T: Parse> Parse for Maybe<T> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Span)]
 pub struct Until<T> {
     start_position: Position,
-    end_position: Position,
     _phantom: PhantomData<T>,
-}
-
-impl<T> Clone for Until<T> {
-    fn clone(&self) -> Self {
-        Self {
-            start_position: self.start_position,
-            end_position: self.end_position,
-            _phantom: self._phantom,
-        }
-    }
-}
-
-impl<T> Span for Until<T> {
-    fn start_position(&self) -> Position {
-        self.start_position
-    }
-
-    fn end_position(&self) -> Position {
-        self.end_position
-    }
+    end_position: Position,
 }
 
 impl<T: Parse> Parse for Until<T> {
@@ -172,6 +152,32 @@ impl Parse for SkipWhitespaces {
     fn parse(parser: &mut Parser) -> ParseResult<Self> {
         parser.parse::<Whitespaces>()?;
         parser.parse().map(Self)
+    }
+}
+
+#[derive(Debug, Clone, Span)]
+pub struct AnyChar {
+    start_position: Position,
+    value: char,
+    end_position: Position,
+}
+
+impl AnyChar {
+    pub fn get(&self) -> char {
+        self.value
+    }
+}
+
+impl Parse for AnyChar {
+    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+        let start_position = parser.current_position();
+        let value = parser.read_char().ok_or(ParseError)?;
+        let end_position = parser.current_position();
+        Ok(Self {
+            start_position,
+            value,
+            end_position,
+        })
     }
 }
 
@@ -338,5 +344,35 @@ impl Parse for Eos {
 
     fn name() -> Option<fn() -> String> {
         Some(|| "EOS".to_owned())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Not<T> {
+    position: Position,
+    _item: PhantomData<T>,
+}
+
+impl<T> Span for Not<T> {
+    fn start_position(&self) -> Position {
+        self.position
+    }
+
+    fn end_position(&self) -> Position {
+        self.position
+    }
+}
+
+impl<T: Parse> Parse for Not<T> {
+    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+        if parser.parse::<T>().is_ok() {
+            Err(ParseError)
+        } else {
+            let position = parser.current_position();
+            Ok(Self {
+                position,
+                _item: PhantomData,
+            })
+        }
     }
 }
