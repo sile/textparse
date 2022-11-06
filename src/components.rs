@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use crate::{Parse, ParseResult, Parser, Position, Span};
 
 #[derive(Debug, Clone, Span)]
@@ -42,7 +40,7 @@ pub enum OneOfFour<A, B, C, D> {
     D(D),
 }
 
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Span)]
 pub struct Maybe<T>(Either<T, Null>);
 
 impl<T> Maybe<T> {
@@ -60,5 +58,15 @@ impl<T> Maybe<T> {
         } else {
             None
         }
+    }
+}
+
+impl<T: Parse> Parse for Maybe<T> {
+    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+        parser.parse().map(Self)
+    }
+
+    fn name() -> &'static str {
+        T::name()
     }
 }

@@ -163,7 +163,7 @@ pub fn derive_parse_trait(input: proc_macro::TokenStream) -> proc_macro::TokenSt
 fn add_parse_trait_bounds(mut generics: Generics) -> Generics {
     let textparse = crate_name();
     for param in &mut generics.params {
-        if let GenericParam::Type(ref mut type_param) = *param {
+        if let GenericParam::Type(type_param) = param {
             type_param.bounds.push(parse_quote!(#textparse::Parse));
         }
     }
@@ -171,10 +171,9 @@ fn add_parse_trait_bounds(mut generics: Generics) -> Generics {
 }
 
 fn generate_parse_fun_body(data: &Data) -> TokenStream {
-    let textparse = crate_name();
-    match *data {
-        Data::Struct(ref data) => match data.fields {
-            Fields::Named(ref fields) => {
+    match data {
+        Data::Struct(data) => match &data.fields {
+            Fields::Named(fields) => {
                 let parse = fields.named.iter().map(|f| {
                     let name = &f.ident;
                     quote_spanned! { f.span() => #name: parser.parse()? }
@@ -185,13 +184,13 @@ fn generate_parse_fun_body(data: &Data) -> TokenStream {
                     })
                 }
             }
-            Fields::Unnamed(ref fields) => {
+            Fields::Unnamed(fields) => {
                 assert_eq!(fields.unnamed.len(), 1);
                 quote! { parser.parse().map(Self) }
             }
             Fields::Unit => unimplemented!(),
         },
-        Data::Enum(ref data) => {
+        Data::Enum(data) => {
             let arms = data.variants.iter().map(|variant| {
                 let name = &variant.ident;
                 if let Fields::Unnamed(fields) = &variant.fields {
@@ -205,7 +204,7 @@ fn generate_parse_fun_body(data: &Data) -> TokenStream {
             });
             quote! {
                 #( #arms )*
-                Err(#textparse::ParseError::Failed)
+                Err(Default::default())
             }
         }
         Data::Union(_) => unimplemented!(),
