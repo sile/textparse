@@ -18,7 +18,7 @@ pub trait Span {
     fn end_position(&self) -> Position;
 
     fn is_empty(&self) -> bool {
-        !(self.start_position().get() < self.end_position().get())
+        self.start_position().get() >= self.end_position().get()
     }
 }
 

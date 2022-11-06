@@ -1,6 +1,7 @@
 use crate::{Position, Span};
 use std::{
     any::{Any, TypeId},
+    cmp::Ordering,
     collections::{BTreeMap, HashMap},
 };
 
@@ -312,14 +313,17 @@ impl<'a> Parser<'a> {
     }
 
     fn update_expected<T: Parse>(&mut self, name: fn() -> String) {
-        if self.expected.position < self.position {
-            self.expected = Expected::new::<T>(self.position, self.level, name);
-        } else if self.position == self.expected.position {
-            if self.expected.level == self.level {
+        match (
+            self.expected.position.cmp(&self.position),
+            self.expected.level.cmp(&self.level),
+        ) {
+            (Ordering::Equal, Ordering::Equal) => {
                 self.expected.add_item::<T>(name);
-            } else if self.level < self.expected.level {
+            }
+            (Ordering::Less, _) | (Ordering::Equal, Ordering::Less) => {
                 self.expected = Expected::new::<T>(self.position, self.level, name);
             }
+            _ => {}
         }
     }
 

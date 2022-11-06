@@ -55,7 +55,7 @@ fn generate_span_start_position_method_body(data: &Data) -> TokenStream {
     match data {
         Data::Struct(data) => match &data.fields {
             Fields::Named(fields) => {
-                let name = &(&fields.named[0]).ident;
+                let name = &fields.named[0].ident;
                 quote! { self.#name.start_position() }
             }
             Fields::Unnamed(_fields) => {

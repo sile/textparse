@@ -100,7 +100,7 @@ impl<T: Parse> Parse for Until<T> {
     fn parse(parser: &mut Parser) -> ParseResult<Self> {
         let start_position = parser.current_position();
         let mut end_position = parser.current_position();
-        while !parser.parse::<T>().is_ok() {
+        while parser.parse::<T>().is_err() {
             if let Some(c) = parser.remaining_text().chars().next() {
                 parser.consume_bytes(c.len_utf8());
                 end_position = parser.current_position();
@@ -183,7 +183,7 @@ pub struct Char<const T: char> {
 
 impl<const T: char> Parse for Char<T> {
     fn parse(parser: &mut Parser) -> ParseResult<Self> {
-        if parser.remaining_text().chars().next() == Some(T) {
+        if parser.remaining_text().starts_with(T) {
             let (start_position, end_position) = parser.consume_bytes(T.len_utf8());
             Ok(Self {
                 start_position,
@@ -209,8 +209,8 @@ pub struct StartsWith<T> {
 impl<T> Clone for StartsWith<T> {
     fn clone(&self) -> Self {
         Self {
-            start_position: self.start_position.clone(),
-            end_position: self.end_position.clone(),
+            start_position: self.start_position,
+            end_position: self.end_position,
             _static_str: self._static_str,
         }
     }
