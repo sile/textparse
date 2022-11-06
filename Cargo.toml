@@ -9,7 +9,7 @@ edition = "2021"
 textparse_derive = { version = "0.1", path = "textparse_derive/" }
 
 [dev-dependencies]
-orfail = "0.1"
+anyhow = "1"
 
 [workspace]
 members = ["textparse_derive"]
