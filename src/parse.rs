@@ -338,10 +338,14 @@ impl<'a> Parser<'a> {
         if has_name {
             self.level -= 1;
         }
-        self.set_parse_result(start, result.clone());
-
-        if result.is_err() {
-            self.position = start;
+        match result.clone() {
+            Ok(t) => {
+                self.set_parse_result(start, Ok(t));
+            }
+            Err(e) => {
+                self.set_parse_result_if_absent::<T>(start, Err(e));
+                self.position = start;
+            }
         }
         result
     }
