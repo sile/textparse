@@ -20,6 +20,14 @@ pub trait Span {
     fn is_empty(&self) -> bool {
         self.start_position().get() >= self.end_position().get()
     }
+
+    fn utf8_len(&self) -> usize {
+        if self.is_empty() {
+            0
+        } else {
+            self.end_position().get() - self.start_position().get()
+        }
+    }
 }
 
 impl Span for Position {

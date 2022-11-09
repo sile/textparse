@@ -15,6 +15,16 @@ pub trait Parse: 'static + Span + Clone + Sized {
     }
 }
 
+impl<T: Parse> Parse for Box<T> {
+    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+        T::parse(parser).map(Box::new)
+    }
+
+    fn name() -> Option<fn() -> String> {
+        T::name()
+    }
+}
+
 impl<T0: Parse, T1: Parse> Parse for (T0, T1) {
     fn parse(parser: &mut Parser) -> ParseResult<Self> {
         Ok((parser.parse()?, parser.parse()?))
@@ -261,6 +271,13 @@ impl<'a> Parser<'a> {
         self.position = Position::new(std::cmp::min(self.text.len(), self.position.get() + n));
         let after = self.position;
         (before, after)
+    }
+
+    pub fn peek<T: Parse>(&mut self) -> ParseResult<T> {
+        let position = self.position;
+        let result = self.parse();
+        self.position = position;
+        result
     }
 
     pub fn parse<T: Parse>(&mut self) -> ParseResult<T> {

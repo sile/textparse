@@ -181,6 +181,53 @@ impl Parse for AnyChar {
     }
 }
 
+pub trait IsTargetChar: 'static {
+    fn is_target_char(c: char) -> bool;
+}
+
+#[derive(Debug)]
+pub struct CharIf<T> {
+    start_position: Position,
+    end_position: Position,
+    _is_target_char: PhantomData<T>,
+}
+
+impl<T> Clone for CharIf<T> {
+    fn clone(&self) -> Self {
+        Self {
+            start_position: self.start_position,
+            end_position: self.end_position,
+            _is_target_char: PhantomData,
+        }
+    }
+}
+
+impl<T> Span for CharIf<T> {
+    fn start_position(&self) -> Position {
+        self.start_position
+    }
+
+    fn end_position(&self) -> Position {
+        self.end_position
+    }
+}
+
+impl<T: IsTargetChar> Parse for CharIf<T> {
+    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+        let start_position = parser.current_position();
+        let c = parser.read_char().ok_or(ParseError)?;
+        if T::is_target_char(c) {
+            Ok(Self {
+                start_position,
+                end_position: parser.current_position(),
+                _is_target_char: PhantomData,
+            })
+        } else {
+            Err(ParseError)
+        }
+    }
+}
+
 #[derive(Debug, Clone, Span)]
 pub struct Char<const T: char> {
     start_position: Position,
@@ -375,4 +422,15 @@ impl<T: Parse> Parse for Not<T> {
             })
         }
     }
+
+    fn name() -> Option<fn() -> String> {
+        if T::name().is_none() {
+            None
+        } else {
+            Some(|| format!("not {}", T::name().unwrap()()))
+        }
+    }
 }
+
+#[derive(Debug, Clone, Span, Parse)]
+pub struct Parenthesized<T>(Char<'('>, T, Char<')'>);
