@@ -280,6 +280,13 @@ impl<'a> Parser<'a> {
         result
     }
 
+    pub fn peek_without_memo<T: Parse>(&mut self) -> ParseResult<T> {
+        let position = self.position;
+        let result = self.parse_without_memo();
+        self.position = position;
+        result
+    }
+
     pub fn parse<T: Parse>(&mut self) -> ParseResult<T> {
         if let Some(result) = self.get_parse_result::<T>(self.position) {
             let result = result.map(|t| t.clone());
@@ -297,7 +304,33 @@ impl<'a> Parser<'a> {
         } else {
             false
         };
-        self.set_parse_result::<T>(start, Err(ParseError));
+        self.set_parse_result_if_absent::<T>(start, Err(ParseError));
+        if has_name {
+            self.level += 1;
+        }
+        let result = T::parse(self);
+        if has_name {
+            self.level -= 1;
+        }
+        self.set_parse_result(start, result.clone());
+
+        if result.is_err() {
+            self.position = start;
+        }
+        result
+    }
+
+    // TODO: rename
+    pub fn parse_without_memo<T: Parse>(&mut self) -> ParseResult<T> {
+        let start = self.position;
+
+        let has_name = if let Some(name) = T::name() {
+            self.update_expected::<T>(name);
+            true
+        } else {
+            false
+        };
+        self.set_parse_result_if_absent::<T>(start, Err(ParseError));
         if has_name {
             self.level += 1;
         }
@@ -344,14 +377,26 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn set_parse_result<T: Parse>(&mut self, position: Position, result: ParseResult<T>) {
+    pub fn set_parsed_item<T: Parse>(&mut self, item: T) {
+        self.set_parse_result(item.start_position(), Ok(item));
+    }
+
+    pub fn set_parse_result<T: Parse>(&mut self, position: Position, result: ParseResult<T>) {
         self.memo
             .entry(TypeId::of::<T>())
             .or_default()
             .insert(position, result.map(|t| Box::new(t) as Box<dyn Any>));
     }
 
-    fn get_parse_result<T: Parse>(&self, position: Position) -> Option<ParseResult<&T>> {
+    fn set_parse_result_if_absent<T: Parse>(&mut self, position: Position, result: ParseResult<T>) {
+        self.memo
+            .entry(TypeId::of::<T>())
+            .or_default()
+            .entry(position)
+            .or_insert_with(|| result.map(|t| Box::new(t) as Box<dyn Any>));
+    }
+
+    pub fn get_parse_result<T: Parse>(&self, position: Position) -> Option<ParseResult<&T>> {
         self.memo
             .get(&TypeId::of::<T>())
             .and_then(|map| map.get(&position))
