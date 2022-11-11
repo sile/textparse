@@ -109,3 +109,13 @@ impl<T0: Span, T1: Span, T2: Span, T3: Span, T4: Span> Span for (T0, T1, T2, T3,
         self.4.end_position()
     }
 }
+
+impl<T0: Span, T1: Span, T2: Span, T3: Span, T4: Span, T5: Span> Span for (T0, T1, T2, T3, T4, T5) {
+    fn start_position(&self) -> Position {
+        self.0.start_position()
+    }
+
+    fn end_position(&self) -> Position {
+        self.5.end_position()
+    }
+}

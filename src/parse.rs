@@ -62,6 +62,21 @@ impl<T0: Parse, T1: Parse, T2: Parse, T3: Parse, T4: Parse> Parse for (T0, T1, T
     }
 }
 
+impl<T0: Parse, T1: Parse, T2: Parse, T3: Parse, T4: Parse, T5: Parse> Parse
+    for (T0, T1, T2, T3, T4, T5)
+{
+    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+        Ok((
+            parser.parse()?,
+            parser.parse()?,
+            parser.parse()?,
+            parser.parse()?,
+            parser.parse()?,
+            parser.parse()?,
+        ))
+    }
+}
+
 #[derive(Debug)]
 pub struct ErrorMessageBuilder<'a> {
     text: &'a str,
