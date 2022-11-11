@@ -21,6 +21,7 @@ impl Parse for Empty {
     }
 }
 
+// TODO: select longer
 #[derive(Debug, Clone, Span, Parse)]
 pub enum Either<A, B> {
     A(A),

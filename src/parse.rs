@@ -117,27 +117,6 @@ impl<'a> ErrorMessageBuilder<'a> {
         (line, column)
     }
 
-    // fn expected_message(&self) -> String {
-    //     let mut expected_items = self.expected.items().collect::<Vec<_>>();
-    //     expected_items.sort();
-    //     match expected_items.len() {
-    //         0 => String::new(),
-    //         1 => {
-    //             s += &format!("expected {}", expected_items[0]);
-    //         }
-    //         n => {
-    //             s += &format!("expected one of {}", expected_items[0]);
-    //             for (i, item) in expected_items.iter().enumerate().skip(1) {
-    //                 if i + 1 == n {
-    //                     s += &format!(", or {}", item);
-    //                 } else {
-    //                     s += &format!(", {}", item);
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-
     fn try_build(self) -> Result<String, std::io::Error> {
         let offset = self.expected.position.get();
         let (line, column) = self.line_and_column();
@@ -175,7 +154,7 @@ impl<'a> ErrorMessageBuilder<'a> {
         s += &format!("{:line_len$} |\n", ' ');
         s += &format!(
             "{} | {}\n",
-            line_len,
+            line,
             self.text[offset + 1 - column..]
                 .lines()
                 .next()
