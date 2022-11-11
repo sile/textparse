@@ -13,11 +13,13 @@ pub trait Parse: 'static + Span + Clone + Sized {
     fn name() -> Option<fn() -> String> {
         None
     }
+
+    // TODO: skip_memo() -> bool
 }
 
 impl<T: Parse> Parse for Box<T> {
     fn parse(parser: &mut Parser) -> ParseResult<Self> {
-        T::parse(parser).map(Box::new)
+        parser.parse().map(Box::new)
     }
 
     fn name() -> Option<fn() -> String> {
@@ -312,6 +314,7 @@ impl<'a> Parser<'a> {
         if has_name {
             self.level -= 1;
         }
+
         self.set_parse_result(start, result.clone());
 
         if result.is_err() {

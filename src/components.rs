@@ -156,6 +156,16 @@ impl Parse for SkipWhitespaces {
 }
 
 #[derive(Debug, Clone, Span)]
+pub struct SkipTrailingWhitespaces(Empty);
+
+impl Parse for SkipTrailingWhitespaces {
+    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+        let (empty, _): (Empty, Whitespaces) = parser.parse()?;
+        Ok(Self(empty))
+    }
+}
+
+#[derive(Debug, Clone, Span)]
 pub struct AnyChar {
     start_position: Position,
     value: char,
@@ -434,3 +444,27 @@ impl<T: Parse> Parse for Not<T> {
 
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Parenthesized<T>(Char<'('>, T, Char<')'>);
+
+#[derive(Debug, Clone, Span)]
+pub struct Trace<T>(T);
+
+impl<T: Parse> Parse for Trace<T> {
+    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+        eprintln!(
+            "[{}] before: {:?}",
+            std::any::type_name::<T>(),
+            parser.current_position()
+        );
+        let result = T::parse(parser).map(Self);
+        if result.is_ok() {
+            eprintln!(
+                "[{}] after: {:?}",
+                std::any::type_name::<T>(),
+                parser.current_position()
+            );
+        } else {
+            eprintln!("[{}] failed", std::any::type_name::<T>());
+        }
+        result
+    }
+}
