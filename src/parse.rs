@@ -1,6 +1,7 @@
 use crate::{Position, Span};
 use std::{
     any::{Any, TypeId},
+    borrow::{Borrow, Cow},
     cmp::Ordering,
     collections::{BTreeMap, HashMap},
 };
@@ -201,7 +202,7 @@ impl Expected {
 
 #[derive(Debug)]
 pub struct Parser<'a> {
-    text: &'a str,
+    text: Cow<'a, str>,
     position: Position,
     level: usize,
     expected: Expected,
@@ -211,7 +212,7 @@ pub struct Parser<'a> {
 impl<'a> Parser<'a> {
     pub fn new(text: &'a str) -> Self {
         Self {
-            text,
+            text: Cow::Borrowed(text),
             position: Position::default(),
             level: 0,
             expected: Expected::default(),
@@ -220,7 +221,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn error_message_builder(&self) -> ErrorMessageBuilder {
-        ErrorMessageBuilder::new(self.text, &self.expected)
+        ErrorMessageBuilder::new(self.text(), &self.expected)
     }
 
     pub fn current_position(&self) -> Position {
@@ -233,6 +234,20 @@ impl<'a> Parser<'a> {
 
     pub fn is_eos(&self) -> bool {
         self.text.len() == self.position.get()
+    }
+
+    pub fn into_owned(self) -> Parser<'static> {
+        Parser {
+            text: Cow::Owned(self.text.into_owned()),
+            position: self.position,
+            level: self.level,
+            expected: self.expected,
+            memo: self.memo,
+        }
+    }
+
+    pub fn text(&self) -> &str {
+        self.text.borrow()
     }
 
     pub fn remaining_text(&self) -> &str {
