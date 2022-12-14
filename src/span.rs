@@ -28,6 +28,10 @@ pub trait Span {
             self.end_position().get() - self.start_position().get()
         }
     }
+
+    fn text<'a>(&self, text: &'a str) -> &'a str {
+        &text[self.start_position().get()..self.end_position().get()]
+    }
 }
 
 impl Span for Position {
