@@ -295,6 +295,8 @@ impl<T> Clone for StartsWith<T> {
     }
 }
 
+impl<T> Copy for StartsWith<T> {}
+
 impl<T> Span for StartsWith<T> {
     fn start_position(&self) -> Position {
         self.start_position
