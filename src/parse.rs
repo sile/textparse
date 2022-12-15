@@ -324,6 +324,8 @@ impl<'a> Parser<'a> {
 
         if result.is_err() {
             self.position = start;
+        } else {
+            self.clear_expected();
         }
         result
     }
@@ -349,6 +351,7 @@ impl<'a> Parser<'a> {
         match result.clone() {
             Ok(t) => {
                 self.set_parse_result(start, Ok(t));
+                self.clear_expected();
             }
             Err(e) => {
                 self.set_parse_result_if_absent::<T>(start, Err(e));
@@ -372,6 +375,12 @@ impl<'a> Parser<'a> {
                     Err(_) => None,
                 })
             })
+    }
+
+    fn clear_expected(&mut self) {
+        if self.expected.position.cmp(&self.position) != Ordering::Greater {
+            self.expected = Expected::default();
+        }
     }
 
     fn update_expected<T: Parse>(&mut self, name: fn() -> String) {
