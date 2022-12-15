@@ -398,6 +398,13 @@ impl<'a> Parser<'a> {
         }
     }
 
+    pub fn rollback<T: Parse>(&mut self, parsed: T) {
+        self.position = parsed.start_position();
+        if let Some(name) = T::name() {
+            self.update_expected::<T>(name);
+        }
+    }
+
     pub fn set_parsed_item<T: Parse>(&mut self, item: T) {
         self.set_parse_result(item.start_position(), Ok(item));
     }
