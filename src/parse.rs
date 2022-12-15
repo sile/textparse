@@ -391,7 +391,7 @@ impl<'a> Parser<'a> {
             (Ordering::Equal, Ordering::Equal) => {
                 self.expected.add_item::<T>(name);
             }
-            (Ordering::Less, _) | (Ordering::Equal, Ordering::Less) => {
+            (Ordering::Less, _) | (Ordering::Equal, Ordering::Greater) => {
                 self.expected = Expected::new::<T>(self.position, self.level, name);
             }
             _ => {}
