@@ -151,7 +151,7 @@ impl<'a> ErrorMessageBuilder<'a> {
 
         s += &format!("  --> {}:{line}:{column}\n", self.filename);
 
-        let line_len = format!("{}", line).len();
+        let line_len = format!("{line}").len();
         s += &format!("{:line_len$} |\n", ' ');
         s += &format!(
             "{line} | {}\n",
