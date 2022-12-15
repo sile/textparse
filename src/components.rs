@@ -1,7 +1,7 @@
 use crate::{Parse, ParseError, ParseResult, Parser, Position, Span};
 use std::marker::PhantomData;
 
-#[derive(Debug, Clone, Span)]
+#[derive(Debug, Clone, Copy, Span)]
 pub struct Empty {
     position: Position,
 }
@@ -21,20 +21,20 @@ impl Parse for Empty {
 }
 
 // TODO: select longer
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Copy, Span, Parse)]
 pub enum Either<A, B> {
     A(A),
     B(B),
 }
 
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Copy, Span, Parse)]
 pub enum OneOfThree<A, B, C> {
     A(A),
     B(B),
     C(C),
 }
 
-#[derive(Debug, Clone, Span, Parse)]
+#[derive(Debug, Clone, Copy, Span, Parse)]
 pub enum OneOfFour<A, B, C, D> {
     A(A),
     B(B),
@@ -42,7 +42,7 @@ pub enum OneOfFour<A, B, C, D> {
     D(D),
 }
 
-#[derive(Debug, Clone, Span)]
+#[derive(Debug, Clone, Copy, Span)]
 pub struct Maybe<T>(Either<T, Empty>);
 
 impl<T> Maybe<T> {
@@ -97,7 +97,7 @@ impl<T: Parse> Parse for Until<T> {
     }
 }
 
-#[derive(Debug, Clone, Span)]
+#[derive(Debug, Span)]
 pub struct While<T> {
     start_position: Position,
     _phantom: PhantomData<T>,
@@ -116,6 +116,18 @@ impl<T: Parse> Parse for While<T> {
         })
     }
 }
+
+impl<T> Clone for While<T> {
+    fn clone(&self) -> Self {
+        Self {
+            start_position: self.start_position,
+            _phantom: self._phantom,
+            end_position: self.end_position,
+        }
+    }
+}
+
+impl<T> Copy for While<T> {}
 
 #[derive(Debug, Clone, Span)]
 pub struct Whitespace {
