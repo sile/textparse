@@ -11,6 +11,21 @@ impl Position {
     pub const fn get(self) -> usize {
         self.0
     }
+
+    pub fn line_and_column(self, text: &str) -> (usize, usize) {
+        let offset = self.0;
+        let mut line = 1;
+        let mut column = 1;
+        for c in text[..offset].chars() {
+            if c == '\n' {
+                line += 1;
+                column = 1;
+            } else {
+                column += 1;
+            }
+        }
+        (line, column)
+    }
 }
 
 pub trait Span {

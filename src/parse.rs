@@ -103,24 +103,9 @@ impl<'a> ErrorMessageBuilder<'a> {
         self.try_build().expect("unreachable")
     }
 
-    fn line_and_column(&self) -> (usize, usize) {
-        let offset = self.expected.position.get();
-        let mut line = 1;
-        let mut column = 1;
-        for c in self.text[..offset].chars() {
-            if c == '\n' {
-                line += 1;
-                column = 1;
-            } else {
-                column += 1;
-            }
-        }
-        (line, column)
-    }
-
     fn try_build(self) -> Result<String, std::io::Error> {
         let offset = self.expected.position.get();
-        let (line, column) = self.line_and_column();
+        let (line, column) = self.expected.position.line_and_column(&self.text);
 
         let mut s = String::new();
 
