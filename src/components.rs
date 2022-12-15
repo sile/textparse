@@ -239,12 +239,12 @@ impl<T: IsTargetChar> Parse for CharIf<T> {
 }
 
 #[derive(Debug, Clone, Span)]
-pub struct Char<const T: char> {
+pub struct Char<const T: char, const NAMED: bool = true> {
     start_position: Position,
     end_position: Position,
 }
 
-impl<const T: char> Parse for Char<T> {
+impl<const T: char, const NAMED: bool> Parse for Char<T, NAMED> {
     fn parse(parser: &mut Parser) -> ParseResult<Self> {
         if parser.remaining_text().starts_with(T) {
             let (start_position, end_position) = parser.consume_bytes(T.len_utf8());
@@ -258,7 +258,11 @@ impl<const T: char> Parse for Char<T> {
     }
 
     fn name() -> Option<fn() -> String> {
-        Some(|| format!("{T:?}"))
+        if NAMED {
+            Some(|| format!("{T:?}"))
+        } else {
+            None
+        }
     }
 }
 
