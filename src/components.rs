@@ -1,6 +1,5 @@
-use std::marker::PhantomData;
-
 use crate::{Parse, ParseError, ParseResult, Parser, Position, Span};
+use std::marker::PhantomData;
 
 #[derive(Debug, Clone, Span)]
 pub struct Empty {
@@ -259,7 +258,7 @@ impl<const T: char> Parse for Char<T> {
     }
 
     fn name() -> Option<fn() -> String> {
-        Some(|| format!("{:?}", T))
+        Some(|| format!("{T:?}"))
     }
 }
 

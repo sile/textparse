@@ -135,9 +135,9 @@ impl<'a> ErrorMessageBuilder<'a> {
                 s += &format!("expected one of {}", expected_items[0]);
                 for (i, item) in expected_items.iter().enumerate().skip(1) {
                     if i + 1 == n {
-                        s += &format!(", or {}", item);
+                        s += &format!(", or {item}");
                     } else {
-                        s += &format!(", {}", item);
+                        s += &format!(", {item}");
                     }
                 }
             }
@@ -149,22 +149,18 @@ impl<'a> ErrorMessageBuilder<'a> {
         }
         s += "\n";
 
-        s += &format!("  --> {}:{}:{}\n", self.filename, line, column);
+        s += &format!("  --> {}:{line}:{column}\n", self.filename);
 
         let line_len = format!("{}", line).len();
         s += &format!("{:line_len$} |\n", ' ');
         s += &format!(
-            "{} | {}\n",
-            line,
+            "{line} | {}\n",
             self.text[offset + 1 - column..]
                 .lines()
                 .next()
                 .expect("unreachable")
         );
-        s += &format!(
-            "{:line_len$} | {:>column$} {}\n",
-            ' ', '^', expected_message
-        );
+        s += &format!("{:line_len$} | {:>column$} {expected_message}\n", ' ', '^');
         Ok(s)
     }
 }
