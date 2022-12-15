@@ -105,7 +105,7 @@ impl<'a> ErrorMessageBuilder<'a> {
 
     fn try_build(self) -> Result<String, std::io::Error> {
         let offset = self.expected.position.get();
-        let (line, column) = self.expected.position.line_and_column(&self.text);
+        let (line, column) = self.expected.position.line_and_column(self.text);
 
         let mut s = String::new();
 
