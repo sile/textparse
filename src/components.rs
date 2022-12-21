@@ -250,7 +250,7 @@ impl<T: IsTargetChar> Parse for CharIf<T> {
     }
 }
 
-#[derive(Debug, Clone, Span)]
+#[derive(Debug, Clone, Copy, Span)]
 pub struct Char<const T: char, const NAMED: bool = true> {
     start_position: Position,
     end_position: Position,
