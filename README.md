@@ -14,7 +14,7 @@ Examples
 The following code implements a parser for a JSON subset format:
 ```rust
 use textparse::{
-    components::{AnyChar, Char, Digit, Eos, Items, NonEmpty, Not, StaticStr, Str, While, Whitespace},
+    components::{AnyChar, Char, Digit, Eos, Items, NonEmpty, Not, Str, While, Whitespace},
     Parse, ParseResult, Parser, Position, Span,
 };
 
@@ -32,8 +32,7 @@ enum JsonValueInner {
 }
 
 #[derive(Clone, Span, Parse)]
-#[parse(name = "`null`")]
-struct JsonNull(Str<Null>);
+struct JsonNull(Str<'n', 'u', 'l', 'l'>);
 
 #[derive(Clone, Span, Parse)]
 #[parse(name = "a JSON string")]
@@ -59,13 +58,6 @@ struct Csv<T>(Items<T, Char<','>>);
 
 #[derive(Clone, Span, Parse)]
 struct WithoutWhitespaces<T>(While<Whitespace>, T, While<Whitespace>);
-
-struct Null;
-impl StaticStr for Null {
-    fn static_str() -> &'static str {
-        "null"
-    }
-}
 ```
 
 You can run the above parser via [examples/check_json.rs](examples/check_json.rs) as follows:

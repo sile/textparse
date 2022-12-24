@@ -180,56 +180,66 @@ impl<const T: char, const NAMED: bool> Parse for Char<T, NAMED> {
     }
 }
 
-#[derive(Debug)]
-pub struct Str<T> {
+#[derive(Debug, Clone, Copy, Span)]
+pub struct Str<
+    const C0: char = '\0',
+    const C1: char = '\0',
+    const C2: char = '\0',
+    const C3: char = '\0',
+    const C4: char = '\0',
+    const C5: char = '\0',
+    const C6: char = '\0',
+    const C7: char = '\0',
+    const C8: char = '\0',
+    const C9: char = '\0',
+> {
     start_position: Position,
     end_position: Position,
-    _static_str: PhantomData<T>,
 }
 
-impl<T> Clone for Str<T> {
-    fn clone(&self) -> Self {
-        Self {
-            start_position: self.start_position,
-            end_position: self.end_position,
-            _static_str: self._static_str,
-        }
-    }
-}
-
-impl<T> Copy for Str<T> {}
-
-impl<T> Span for Str<T> {
-    fn start_position(&self) -> Position {
-        self.start_position
-    }
-
-    fn end_position(&self) -> Position {
-        self.end_position
-    }
-}
-
-impl<T: StaticStr> Parse for Str<T> {
+impl<
+        const C0: char,
+        const C1: char,
+        const C2: char,
+        const C3: char,
+        const C4: char,
+        const C5: char,
+        const C6: char,
+        const C7: char,
+        const C8: char,
+        const C9: char,
+    > Parse for Str<C0, C1, C2, C3, C4, C5, C6, C7, C8, C9>
+{
     fn parse(parser: &mut Parser) -> ParseResult<Self> {
-        if parser.remaining_text().starts_with(T::static_str()) {
-            let (start_position, end_position) = parser.consume_bytes(T::static_str().len());
-            Ok(Self {
-                start_position,
-                end_position,
-                _static_str: PhantomData,
-            })
-        } else {
-            Err(ParseError)
+        let start_position = parser.current_position();
+        for c in [C0, C1, C2, C3, C4, C5, C6, C7, C8, C9] {
+            if c == '\0' {
+                break;
+            }
+            if parser.peek_char() != Some(c) {
+                return Err(ParseError);
+            }
+            parser.consume_chars(1);
         }
+        let end_position = parser.current_position();
+        Ok(Self {
+            start_position,
+            end_position,
+        })
     }
 
     fn name() -> Option<fn() -> String> {
-        Some(|| format!("{:?}", T::static_str()))
+        Some(|| {
+            let mut s = String::new();
+            for c in [C0, C1, C2, C3, C4, C5, C6, C7, C8, C9] {
+                if c == '\0' {
+                    break;
+                }
+                s.push(c);
+            }
+            s
+        })
     }
-}
-
-pub trait StaticStr: 'static {
-    fn static_str() -> &'static str;
 }
 
 #[derive(Debug, Clone)]
@@ -364,9 +374,9 @@ impl<T: Parse> Parse for Not<T> {
 
 #[derive(Debug, Clone, Copy, Span)]
 pub struct Digit<const RADIX: u8 = 10> {
-    start: Position,
+    start_position: Position,
     value: u8,
-    end: Position,
+    end_position: Position,
 }
 
 impl<const RADIX: u8> Digit<RADIX> {
@@ -381,7 +391,11 @@ impl<const RADIX: u8> Parse for Digit<RADIX> {
             .peek_char()
             .and_then(|c| c.to_digit(u32::from(RADIX)))
             .ok_or(ParseError)? as u8;
-        let (start, end) = parser.consume_chars(1);
-        Ok(Self { start, value, end })
+        let (start_position, end_position) = parser.consume_chars(1);
+        Ok(Self {
+            start_position,
+            value,
+            end_position,
+        })
     }
 }
