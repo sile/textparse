@@ -14,8 +14,6 @@ pub trait Parse: 'static + Span + Clone + Sized {
     fn name() -> Option<fn() -> String> {
         None
     }
-
-    // TODO: skip_memo() -> bool
 }
 
 impl<T: Parse> Parse for Box<T> {
@@ -272,13 +270,6 @@ impl<'a> Parser<'a> {
         result
     }
 
-    pub fn peek_without_memo<T: Parse>(&mut self) -> ParseResult<T> {
-        let position = self.position;
-        let result = self.parse_without_memo();
-        self.position = position;
-        result
-    }
-
     pub fn parse<T: Parse>(&mut self) -> ParseResult<T> {
         if let Some(result) = self.get_parse_result::<T>(self.position) {
             let result = result.map(|t| t.clone());
@@ -309,36 +300,6 @@ impl<'a> Parser<'a> {
 
         if result.is_err() {
             self.position = start;
-        }
-        result
-    }
-
-    // TODO: rename
-    pub fn parse_without_memo<T: Parse>(&mut self) -> ParseResult<T> {
-        let start = self.position;
-
-        let has_name = if let Some(name) = T::name() {
-            self.update_expected::<T>(name);
-            true
-        } else {
-            false
-        };
-        self.set_parse_result_if_absent::<T>(start, Err(ParseError));
-        if has_name {
-            self.level += 1;
-        }
-        let result = T::parse(self);
-        if has_name {
-            self.level -= 1;
-        }
-        match result.clone() {
-            Ok(t) => {
-                self.set_parse_result(start, Ok(t));
-            }
-            Err(e) => {
-                self.set_parse_result_if_absent::<T>(start, Err(e));
-                self.position = start;
-            }
         }
         result
     }
