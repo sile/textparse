@@ -207,10 +207,6 @@ impl<'a> Parser<'a> {
         self.position
     }
 
-    pub fn set_current_position(&mut self, position: Position) {
-        self.position = Position::new(std::cmp::min(self.text.len(), position.get()));
-    }
-
     pub fn is_eos(&self) -> bool {
         self.text.len() == self.position.get()
     }
@@ -342,11 +338,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn set_parsed_item<T: Parse>(&mut self, item: T) {
-        self.set_parse_result(item.start_position(), Ok(item));
-    }
-
-    pub fn set_parse_result<T: Parse>(&mut self, position: Position, result: ParseResult<T>) {
+    fn set_parse_result<T: Parse>(&mut self, position: Position, result: ParseResult<T>) {
         self.memo
             .entry(TypeId::of::<T>())
             .or_default()
@@ -361,7 +353,7 @@ impl<'a> Parser<'a> {
             .or_insert_with(|| result.map(|t| Box::new(t) as Box<dyn Any>));
     }
 
-    pub fn get_parse_result<T: Parse>(&self, position: Position) -> Option<ParseResult<&T>> {
+    fn get_parse_result<T: Parse>(&self, position: Position) -> Option<ParseResult<&T>> {
         self.memo
             .get(&TypeId::of::<T>())
             .and_then(|map| map.get(&position))
