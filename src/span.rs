@@ -1,20 +1,24 @@
 pub use textparse_derive::Span;
 
+/// Position (offset) in a text.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Position(usize);
 
 impl Position {
+    /// Makes a new [`Position`] instance.
     pub const fn new(offset: usize) -> Self {
         Self(offset)
     }
 
+    /// Gets the offset.
     pub const fn get(self) -> usize {
         self.0
     }
 
+    /// Returns the line and column numbers at where this position is located in the given text.
     pub fn line_and_column(self, text: &str) -> (usize, usize) {
         let offset = self.0;
-        let mut line = 1;
+        let mut line = 0;
         let mut column = 1;
         for c in text[..offset].chars() {
             if c == '\n' {
@@ -28,15 +32,21 @@ impl Position {
     }
 }
 
+/// This trait allows for representing a parsed item that has start and end positions in a text.
 pub trait Span {
+    /// Returns the start position of this item.
     fn start_position(&self) -> Position;
+
+    /// Returns the end position of this item.
     fn end_position(&self) -> Position;
 
+    /// Returns `true` if the span is empty, otherwise `false`.
     fn is_empty(&self) -> bool {
         self.start_position().get() >= self.end_position().get()
     }
 
-    fn utf8_len(&self) -> usize {
+    /// Returns the length of this span.
+    fn len(&self) -> usize {
         if self.is_empty() {
             0
         } else {
@@ -44,6 +54,7 @@ pub trait Span {
         }
     }
 
+    /// Returns the text representation of this item.
     fn text<'a>(&self, text: &'a str) -> &'a str {
         &text[self.start_position().get()..self.end_position().get()]
     }
