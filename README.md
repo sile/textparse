@@ -14,10 +14,8 @@ Examples
 The following code implements a parser for a JSON subset format:
 ```rust
 use textparse::{
-    components::{
-        Char, Eos, Items, NonEmpty, SkipWhitespaces, StartsWith, StaticStr, Until, While,
-    },
-    Parse, ParseError, ParseResult, Parser, Position, Span,
+    components::{AnyChar, Char, Digit, Eos, Items, NonEmpty, Not, StaticStr, Str, While, Whitespace},
+    Parse, ParseResult, Parser, Position, Span,
 };
 
 #[derive(Clone, Span, Parse)]
@@ -35,11 +33,11 @@ enum JsonValueInner {
 
 #[derive(Clone, Span, Parse)]
 #[parse(name = "`null`")]
-struct JsonNull(StartsWith<Null>);
+struct JsonNull(Str<Null>);
 
 #[derive(Clone, Span, Parse)]
 #[parse(name = "a JSON string")]
-struct JsonString(Char<'"'>, Until<Char<'"'>>, Char<'"'>);
+struct JsonString(Char<'"'>, While<(Not<Char<'"'>>, AnyChar)>, Char<'"'>);
 
 #[derive(Clone, Span, Parse)]
 #[parse(name = "a JSON number")]
@@ -60,25 +58,12 @@ struct JsonObjectItem(WithoutWhitespaces<JsonString>, Char<':'>, JsonValue);
 struct Csv<T>(Items<T, Char<','>>);
 
 #[derive(Clone, Span, Parse)]
-struct WithoutWhitespaces<T>(SkipWhitespaces, T, SkipWhitespaces);
+struct WithoutWhitespaces<T>(While<Whitespace>, T, While<Whitespace>);
 
 struct Null;
 impl StaticStr for Null {
     fn static_str() -> &'static str {
         "null"
-    }
-}
-
-#[derive(Debug, Clone, Span)]
-struct Digit(Position, Position);
-impl Parse for Digit {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
-        parser
-            .peek_char()
-            .filter(|c| c.is_ascii_digit())
-            .ok_or(ParseError)?;
-        let (start, end) = parser.consume_chars(1);
-        Ok(Self(start, end))
     }
 }
 ```

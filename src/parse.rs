@@ -141,7 +141,7 @@ impl<'a> ErrorMessageBuilder<'a> {
             self.text[offset + 1 - column..]
                 .lines()
                 .next()
-                .expect("unreachable")
+                .unwrap_or("")
         );
         s += &format!("{:line_len$} | {:>column$} {expected_message}\n", ' ', '^');
         Ok(s)

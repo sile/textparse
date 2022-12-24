@@ -69,34 +69,6 @@ impl<T: Parse> Parse for Maybe<T> {
     }
 }
 
-#[derive(Debug, Clone, Span)]
-pub struct Until<T> {
-    start_position: Position,
-    _phantom: PhantomData<T>,
-    end_position: Position,
-}
-
-impl<T: Parse> Parse for Until<T> {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
-        let start_position = parser.current_position();
-        let mut end_position = parser.current_position();
-        while parser.parse::<T>().is_err() {
-            if let Some(c) = parser.remaining_text().chars().next() {
-                parser.consume_bytes(c.len_utf8());
-                end_position = parser.current_position();
-            } else {
-                return Err(ParseError);
-            }
-        }
-        parser.set_current_position(end_position);
-        Ok(Self {
-            start_position,
-            end_position,
-            _phantom: PhantomData,
-        })
-    }
-}
-
 #[derive(Debug, Span)]
 pub struct While<T> {
     start_position: Position,
@@ -154,30 +126,7 @@ impl Parse for Whitespace {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse)]
-pub struct Whitespaces(While<Whitespace>);
-
-#[derive(Debug, Clone, Span)]
-pub struct SkipWhitespaces(Empty);
-
-impl Parse for SkipWhitespaces {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
-        parser.parse::<Whitespaces>()?;
-        parser.parse().map(Self)
-    }
-}
-
-#[derive(Debug, Clone, Span)]
-pub struct SkipTrailingWhitespaces(Empty);
-
-impl Parse for SkipTrailingWhitespaces {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
-        let (empty, _): (Empty, Whitespaces) = parser.parse()?;
-        Ok(Self(empty))
-    }
-}
-
-#[derive(Debug, Clone, Span)]
+#[derive(Debug, Clone, Copy, Span)]
 pub struct AnyChar {
     start_position: Position,
     value: char,
@@ -200,53 +149,6 @@ impl Parse for AnyChar {
             value,
             end_position,
         })
-    }
-}
-
-pub trait IsTargetChar: 'static {
-    fn is_target_char(c: char) -> bool;
-}
-
-#[derive(Debug)]
-pub struct CharIf<T> {
-    start_position: Position,
-    end_position: Position,
-    _is_target_char: PhantomData<T>,
-}
-
-impl<T> Clone for CharIf<T> {
-    fn clone(&self) -> Self {
-        Self {
-            start_position: self.start_position,
-            end_position: self.end_position,
-            _is_target_char: PhantomData,
-        }
-    }
-}
-
-impl<T> Span for CharIf<T> {
-    fn start_position(&self) -> Position {
-        self.start_position
-    }
-
-    fn end_position(&self) -> Position {
-        self.end_position
-    }
-}
-
-impl<T: IsTargetChar> Parse for CharIf<T> {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
-        let start_position = parser.current_position();
-        let c = parser.read_char().ok_or(ParseError)?;
-        if T::is_target_char(c) {
-            Ok(Self {
-                start_position,
-                end_position: parser.current_position(),
-                _is_target_char: PhantomData,
-            })
-        } else {
-            Err(ParseError)
-        }
     }
 }
 
@@ -279,13 +181,13 @@ impl<const T: char, const NAMED: bool> Parse for Char<T, NAMED> {
 }
 
 #[derive(Debug)]
-pub struct StartsWith<T> {
+pub struct Str<T> {
     start_position: Position,
     end_position: Position,
     _static_str: PhantomData<T>,
 }
 
-impl<T> Clone for StartsWith<T> {
+impl<T> Clone for Str<T> {
     fn clone(&self) -> Self {
         Self {
             start_position: self.start_position,
@@ -295,9 +197,9 @@ impl<T> Clone for StartsWith<T> {
     }
 }
 
-impl<T> Copy for StartsWith<T> {}
+impl<T> Copy for Str<T> {}
 
-impl<T> Span for StartsWith<T> {
+impl<T> Span for Str<T> {
     fn start_position(&self) -> Position {
         self.start_position
     }
@@ -307,7 +209,7 @@ impl<T> Span for StartsWith<T> {
     }
 }
 
-impl<T: StaticStr> Parse for StartsWith<T> {
+impl<T: StaticStr> Parse for Str<T> {
     fn parse(parser: &mut Parser) -> ParseResult<Self> {
         if parser.remaining_text().starts_with(T::static_str()) {
             let (start_position, end_position) = parser.consume_bytes(T::static_str().len());
@@ -331,17 +233,17 @@ pub trait StaticStr: 'static {
 }
 
 #[derive(Debug, Clone)]
-pub struct NonEmptyItems<Item, Delimiter> {
+struct NonEmptyItems<Item, Delimiter> {
     items: Vec<Item>,
     delimiters: Vec<Delimiter>,
 }
 
 impl<Item, Delimiter> NonEmptyItems<Item, Delimiter> {
-    pub fn items(&self) -> &[Item] {
+    fn items(&self) -> &[Item] {
         &self.items
     }
 
-    pub fn delimiters(&self) -> &[Delimiter] {
+    fn delimiters(&self) -> &[Delimiter] {
         &self.delimiters
     }
 }
@@ -401,7 +303,7 @@ impl<T: Parse> Parse for NonEmpty<T> {
     }
 }
 
-#[derive(Debug, Clone, Span)]
+#[derive(Debug, Clone, Copy, Span)]
 pub struct Eos {
     position: Position,
 }
@@ -460,29 +362,26 @@ impl<T: Parse> Parse for Not<T> {
     }
 }
 
-#[derive(Debug, Clone, Span, Parse)]
-pub struct Parenthesized<T>(Char<'('>, T, Char<')'>);
+#[derive(Debug, Clone, Copy, Span)]
+pub struct Digit<const RADIX: u8 = 10> {
+    start: Position,
+    value: u8,
+    end: Position,
+}
 
-#[derive(Debug, Clone, Span)]
-pub struct Trace<T>(T);
+impl<const RADIX: u8> Digit<RADIX> {
+    pub const fn get(self) -> u8 {
+        self.value
+    }
+}
 
-impl<T: Parse> Parse for Trace<T> {
+impl<const RADIX: u8> Parse for Digit<RADIX> {
     fn parse(parser: &mut Parser) -> ParseResult<Self> {
-        eprintln!(
-            "[{}] before: {:?}",
-            std::any::type_name::<T>(),
-            parser.current_position()
-        );
-        let result = T::parse(parser).map(Self);
-        if result.is_ok() {
-            eprintln!(
-                "[{}] after: {:?}",
-                std::any::type_name::<T>(),
-                parser.current_position()
-            );
-        } else {
-            eprintln!("[{}] failed", std::any::type_name::<T>());
-        }
-        result
+        let value = parser
+            .peek_char()
+            .and_then(|c| c.to_digit(u32::from(RADIX)))
+            .ok_or(ParseError)? as u8;
+        let (start, end) = parser.consume_chars(1);
+        Ok(Self { start, value, end })
     }
 }
