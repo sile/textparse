@@ -1,13 +1,15 @@
+//! Basic components.
 use crate::{Parse, ParseError, ParseResult, Parser, Position, Span};
 use std::marker::PhantomData;
 
+/// An empty item.
 #[derive(Debug, Clone, Copy, Span)]
 pub struct Empty {
     position: Position,
 }
 
 impl Empty {
-    pub const fn new(position: Position) -> Self {
+    const fn new(position: Position) -> Self {
         Self { position }
     }
 }
@@ -126,6 +128,7 @@ impl Parse for Whitespace {
     }
 }
 
+/// A character.
 #[derive(Debug, Clone, Copy, Span)]
 pub struct AnyChar {
     start_position: Position,
@@ -134,6 +137,7 @@ pub struct AnyChar {
 }
 
 impl AnyChar {
+    /// Returns the character value.
     pub fn get(&self) -> char {
         self.value
     }
@@ -152,6 +156,7 @@ impl Parse for AnyChar {
     }
 }
 
+/// A specific character.
 #[derive(Debug, Clone, Copy, Span)]
 pub struct Char<const T: char, const NAMED: bool = true> {
     start_position: Position,
@@ -313,6 +318,7 @@ impl<T: Parse> Parse for NonEmpty<T> {
     }
 }
 
+/// End-Of-String.
 #[derive(Debug, Clone, Copy, Span)]
 pub struct Eos {
     position: Position,
@@ -372,6 +378,7 @@ impl<T: Parse> Parse for Not<T> {
     }
 }
 
+/// A digit.
 #[derive(Debug, Clone, Copy, Span)]
 pub struct Digit<const RADIX: u8 = 10> {
     start_position: Position,
@@ -380,6 +387,7 @@ pub struct Digit<const RADIX: u8 = 10> {
 }
 
 impl<const RADIX: u8> Digit<RADIX> {
+    /// Returns the digit value.
     pub const fn get(self) -> u8 {
         self.value
     }
