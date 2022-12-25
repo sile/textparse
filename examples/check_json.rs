@@ -12,10 +12,7 @@ fn main() -> anyhow::Result<()> {
     if parser.parse::<(JsonValue, Eos)>().is_some() {
         println!("OK: the input string is a JSON text.");
     } else {
-        println!(
-            "Error: {}",
-            parser.error_message_builder().filename("<STDIN>").build()
-        );
+        println!("Error: {}", parser.into_parse_error().file_path("<STDIN>"));
     }
     Ok(())
 }

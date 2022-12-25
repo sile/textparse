@@ -97,7 +97,7 @@ impl<T> Clone for While<T> {
 
 impl<T> Copy for While<T> {}
 
-/// A whitespace ([`char::is_ascii_whitespace()`]).
+/// A whitespace (cf. [`char::is_ascii_whitespace()`]).
 #[derive(Debug, Clone, Copy, Span)]
 pub struct Whitespace {
     start_position: Position,

@@ -17,10 +17,9 @@ impl Position {
 
     /// Returns the line and column numbers at where this position is located in the given text.
     pub fn line_and_column(self, text: &str) -> (usize, usize) {
-        let offset = self.0;
-        let mut line = 0;
+        let mut line = 1;
         let mut column = 1;
-        for c in text[..offset].chars() {
+        for c in text[..self.0].chars() {
             if c == '\n' {
                 line += 1;
                 column = 1;

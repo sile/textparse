@@ -1,9 +1,12 @@
 use crate::{Position, Span};
+use std::fmt::Write;
 use std::{
     any::{Any, TypeId},
     borrow::{Borrow, Cow},
     cmp::Ordering,
     collections::{BTreeMap, HashMap},
+    error::Error,
+    path::{Path, PathBuf},
 };
 
 pub use textparse_derive::Parse;
@@ -78,105 +81,6 @@ impl<T0: Parse, T1: Parse, T2: Parse, T3: Parse, T4: Parse, T5: Parse> Parse
             parser.parse()?,
             parser.parse()?,
         ))
-    }
-}
-
-#[derive(Debug)]
-pub struct ErrorMessageBuilder<'a> {
-    text: &'a str,
-    expected: &'a Expected,
-    filename: String,
-}
-
-impl<'a> ErrorMessageBuilder<'a> {
-    fn new(text: &'a str, expected: &'a Expected) -> Self {
-        Self {
-            text,
-            expected,
-            filename: "<UNKNOWN>".to_owned(),
-        }
-    }
-
-    pub fn filename(mut self, filename: &str) -> Self {
-        self.filename = filename.to_owned();
-        self
-    }
-
-    pub fn build(self) -> String {
-        self.try_build().expect("unreachable")
-    }
-
-    fn try_build(self) -> Result<String, std::io::Error> {
-        let offset = self.expected.position.get();
-        let (line, column) = self.expected.position.line_and_column(self.text);
-
-        let mut s = String::new();
-
-        let mut expected_items = self.expected.items().collect::<Vec<_>>();
-        expected_items.sort();
-        match expected_items.len() {
-            0 => {}
-            1 => {
-                s += &format!("expected {}", expected_items[0]);
-            }
-            n => {
-                s += &format!("expected one of {}", expected_items[0]);
-                for (i, item) in expected_items.iter().enumerate().skip(1) {
-                    if i + 1 == n {
-                        s += &format!(", or {item}");
-                    } else {
-                        s += &format!(", {item}");
-                    }
-                }
-            }
-        }
-        let expected_message = s.clone();
-
-        if offset == self.text.len() {
-            s += ", reached EOS";
-        }
-        s += "\n";
-
-        s += &format!("  --> {}:{line}:{column}\n", self.filename);
-
-        let line_len = format!("{line}").len();
-        s += &format!("{:line_len$} |\n", ' ');
-        s += &format!(
-            "{line} | {}\n",
-            self.text[offset + 1 - column..]
-                .lines()
-                .next()
-                .unwrap_or("")
-        );
-        s += &format!("{:line_len$} | {:>column$} {expected_message}\n", ' ', '^');
-        Ok(s)
-    }
-}
-
-#[derive(Debug, Default)]
-struct Expected {
-    position: Position,
-    level: usize,
-    expected_items: HashMap<TypeId, fn() -> String>,
-}
-
-impl Expected {
-    fn new<T: Parse>(position: Position, level: usize, name: fn() -> String) -> Self {
-        let mut this = Self {
-            position,
-            level,
-            expected_items: Default::default(),
-        };
-        this.add_item::<T>(name);
-        this
-    }
-
-    fn add_item<T: Parse>(&mut self, name: fn() -> String) {
-        self.expected_items.insert(TypeId::of::<T>(), name);
-    }
-
-    pub fn items(&self) -> impl '_ + Iterator<Item = String> {
-        self.expected_items.values().map(|f| f())
     }
 }
 
@@ -286,13 +190,14 @@ impl<'a> Parser<'a> {
             })
     }
 
-    // TODO
-    pub fn error_message_builder(&self) -> ErrorMessageBuilder {
-        ErrorMessageBuilder::new(self.text(), &self.expected)
+    /// Converts [`Parser`] into [`ParseError`].
+    ///
+    /// You should call this method only when `Parser::parse()` returned `None`.
+    pub fn into_parse_error(self) -> ParseError {
+        ParseError::new(self.into_owned())
     }
 
-    // TODO: private(?)
-    pub fn into_owned(self) -> Parser<'static> {
+    fn into_owned(self) -> Parser<'static> {
         Parser {
             text: Cow::Owned(self.text.into_owned()),
             position: self.position,
@@ -341,5 +246,123 @@ impl<'a> Parser<'a> {
                     .as_ref()
                     .map(|item| item.downcast_ref::<T>().expect("unreachable"))
             })
+    }
+}
+
+#[derive(Debug, Default)]
+struct Expected {
+    position: Position,
+    level: usize,
+    expected_items: HashMap<TypeId, fn() -> String>,
+}
+
+impl Expected {
+    fn new<T: Parse>(position: Position, level: usize, name: fn() -> String) -> Self {
+        let mut this = Self {
+            position,
+            level,
+            expected_items: Default::default(),
+        };
+        this.add_item::<T>(name);
+        this
+    }
+
+    fn add_item<T: Parse>(&mut self, name: fn() -> String) {
+        self.expected_items.insert(TypeId::of::<T>(), name);
+    }
+
+    fn items(&self) -> impl '_ + Iterator<Item = String> {
+        self.expected_items.values().map(|f| f())
+    }
+}
+
+/// Parse error.
+pub struct ParseError {
+    parser: Parser<'static>,
+    file_path: PathBuf,
+}
+
+impl ParseError {
+    fn new(parser: Parser<'static>) -> Self {
+        Self {
+            parser,
+            file_path: PathBuf::from("<UNKNOWN>"),
+        }
+    }
+
+    /// Sets the file path of the parse target text.
+    ///
+    /// The default value is `<UNKNOWN>`.
+    pub fn file_path<P: AsRef<Path>>(mut self, file_path: P) -> Self {
+        self.file_path = file_path.as_ref().to_path_buf();
+        self
+    }
+
+    fn error_reason(&self) -> Result<String, std::fmt::Error> {
+        let mut s = String::new();
+        let mut expected_items = self.parser.expected.items().collect::<Vec<_>>();
+        expected_items.sort();
+        match expected_items.len() {
+            0 => {}
+            1 => {
+                write!(s, "expected {}", expected_items[0])?;
+            }
+            n => {
+                write!(s, "expected one of {}", expected_items[0])?;
+                for (i, item) in expected_items.iter().enumerate().skip(1) {
+                    if i + 1 == n {
+                        write!(s, ", or {item}")?;
+                    } else {
+                        write!(s, ", {item}")?;
+                    }
+                }
+            }
+        }
+        Ok(s)
+    }
+}
+
+impl Error for ParseError {}
+
+impl std::fmt::Debug for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self}")
+    }
+}
+
+impl std::fmt::Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let offset = self.parser.expected.position.get();
+        let (line, column) = self
+            .parser
+            .expected
+            .position
+            .line_and_column(&self.parser.text);
+        let reason = self.error_reason()?;
+        write!(f, "{reason}")?;
+
+        if offset == self.parser.text.len() {
+            write!(f, ", reached EOS")?;
+        }
+        writeln!(f)?;
+
+        writeln!(
+            f,
+            "  --> {}:{line}:{column}",
+            self.file_path.to_string_lossy()
+        )?;
+
+        let line_len = format!("{line}").len();
+        writeln!(f, "{:line_len$} |", ' ')?;
+        writeln!(
+            f,
+            "{line} | {}",
+            self.parser.text[offset + 1 - column..]
+                .lines()
+                .next()
+                .unwrap_or("")
+        )?;
+        writeln!(f, "{:line_len$} | {:>column$} {reason}", ' ', '^')?;
+        Ok(())
     }
 }
