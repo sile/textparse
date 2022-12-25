@@ -1,5 +1,5 @@
 //! Basic components.
-use crate::{Parse, ParseError, ParseResult, Parser, Position, Span};
+use crate::{Parse, Parser, Position, Span};
 use std::marker::PhantomData;
 
 /// Empty item.
@@ -9,8 +9,8 @@ pub struct Empty {
 }
 
 impl Parse for Empty {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
-        Ok(Self {
+    fn parse(parser: &mut Parser) -> Option<Self> {
+        Some(Self {
             position: parser.current_position(),
         })
     }
@@ -56,7 +56,7 @@ impl<T> Maybe<T> {
 }
 
 impl<T: Parse> Parse for Maybe<T> {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+    fn parse(parser: &mut Parser) -> Option<Self> {
         parser.parse().map(Self)
     }
 }
@@ -70,11 +70,11 @@ pub struct While<T> {
 }
 
 impl<T: Parse> Parse for While<T> {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+    fn parse(parser: &mut Parser) -> Option<Self> {
         let start_position = parser.current_position();
-        while parser.parse::<T>().is_ok() {}
+        while parser.parse::<T>().is_some() {}
         let end_position = parser.current_position();
-        Ok(Self {
+        Some(Self {
             start_position,
             end_position,
             _phantom: PhantomData,
@@ -102,21 +102,19 @@ pub struct Whitespace {
 }
 
 impl Parse for Whitespace {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
-        if parser
+    fn parse(parser: &mut Parser) -> Option<Self> {
+        parser
             .remaining_text()
             .chars()
             .next()
-            .map_or(false, |c| c.is_ascii_whitespace())
-        {
-            let (start_position, end_position) = parser.consume_chars(1);
-            Ok(Self {
-                start_position,
-                end_position,
+            .filter(|c| c.is_ascii_whitespace())
+            .map(|_| {
+                let (start_position, end_position) = parser.consume_chars(1);
+                Self {
+                    start_position,
+                    end_position,
+                }
             })
-        } else {
-            Err(ParseError)
-        }
     }
 }
 
@@ -136,11 +134,11 @@ impl AnyChar {
 }
 
 impl Parse for AnyChar {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+    fn parse(parser: &mut Parser) -> Option<Self> {
         let start_position = parser.current_position();
-        let value = parser.read_char().ok_or(ParseError)?;
+        let value = parser.read_char()?;
         let end_position = parser.current_position();
-        Ok(Self {
+        Some(Self {
             start_position,
             value,
             end_position,
@@ -156,16 +154,14 @@ pub struct Char<const T: char, const NAMED: bool = true> {
 }
 
 impl<const T: char, const NAMED: bool> Parse for Char<T, NAMED> {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
-        if parser.remaining_text().starts_with(T) {
+    fn parse(parser: &mut Parser) -> Option<Self> {
+        parser.peek_char().filter(|c| *c == T).map(|_| {
             let (start_position, end_position) = parser.consume_bytes(T.len_utf8());
-            Ok(Self {
+            Self {
                 start_position,
                 end_position,
-            })
-        } else {
-            Err(ParseError)
-        }
+            }
+        })
     }
 
     fn name() -> Option<fn() -> String> {
@@ -208,19 +204,18 @@ impl<
         const C9: char,
     > Parse for Str<C0, C1, C2, C3, C4, C5, C6, C7, C8, C9>
 {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+    fn parse(parser: &mut Parser) -> Option<Self> {
         let start_position = parser.current_position();
         for c in [C0, C1, C2, C3, C4, C5, C6, C7, C8, C9] {
             if c == '\0' {
                 break;
             }
-            if parser.peek_char() != Some(c) {
-                return Err(ParseError);
+            if parser.read_char() != Some(c) {
+                return None;
             }
-            parser.consume_chars(1);
         }
         let end_position = parser.current_position();
-        Ok(Self {
+        Some(Self {
             start_position,
             end_position,
         })
@@ -267,14 +262,14 @@ impl<Item: Span, Delimiter: Span> Span for NonEmptyItems<Item, Delimiter> {
 }
 
 impl<Item: Parse, Delimiter: Parse> Parse for NonEmptyItems<Item, Delimiter> {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+    fn parse(parser: &mut Parser) -> Option<Self> {
         let mut items = vec![parser.parse::<Item>()?];
         let mut delimiters = Vec::new();
-        while let Ok(delimiter) = parser.parse::<Delimiter>() {
+        while let Some(delimiter) = parser.parse::<Delimiter>() {
             delimiters.push(delimiter);
             items.push(parser.parse()?);
         }
-        Ok(Self { items, delimiters })
+        Some(Self { items, delimiters })
     }
 }
 
@@ -306,12 +301,12 @@ impl<T> NonEmpty<T> {
 }
 
 impl<T: Parse> Parse for NonEmpty<T> {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+    fn parse(parser: &mut Parser) -> Option<Self> {
         let item: T = parser.parse()?;
         if item.is_empty() {
-            Err(ParseError)
+            None
         } else {
-            Ok(Self(item))
+            Some(Self(item))
         }
     }
 }
@@ -323,13 +318,13 @@ pub struct Eos {
 }
 
 impl Parse for Eos {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+    fn parse(parser: &mut Parser) -> Option<Self> {
         if parser.is_eos() {
-            Ok(Self {
+            Some(Self {
                 position: parser.current_position(),
             })
         } else {
-            Err(ParseError)
+            None
         }
     }
 
@@ -367,15 +362,15 @@ impl<T> Span for Not<T> {
 }
 
 impl<T: Parse> Parse for Not<T> {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
-        if parser.parse::<T>().is_ok() {
-            Err(ParseError)
-        } else {
+    fn parse(parser: &mut Parser) -> Option<Self> {
+        if parser.parse::<T>().is_none() {
             let position = parser.current_position();
-            Ok(Self {
+            Some(Self {
                 position,
                 _item: PhantomData,
             })
+        } else {
+            None
         }
     }
 
@@ -404,13 +399,12 @@ impl<const RADIX: u8> Digit<RADIX> {
 }
 
 impl<const RADIX: u8> Parse for Digit<RADIX> {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+    fn parse(parser: &mut Parser) -> Option<Self> {
         let value = parser
             .peek_char()
-            .and_then(|c| c.to_digit(u32::from(RADIX)))
-            .ok_or(ParseError)? as u8;
+            .and_then(|c| c.to_digit(u32::from(RADIX)))? as u8;
         let (start_position, end_position) = parser.consume_chars(1);
-        Ok(Self {
+        Some(Self {
             start_position,
             value,
             end_position,

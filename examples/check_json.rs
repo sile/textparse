@@ -1,7 +1,7 @@
 use std::io::Read;
 use textparse::{
     components::{AnyChar, Char, Digit, Eos, Items, NonEmpty, Not, Str, While, Whitespace},
-    Parse, ParseResult, Parser, Position, Span,
+    Parse, Parser, Position, Span,
 };
 
 fn main() -> anyhow::Result<()> {
@@ -9,7 +9,7 @@ fn main() -> anyhow::Result<()> {
     std::io::stdin().read_to_string(&mut text)?;
 
     let mut parser = Parser::new(&text);
-    if parser.parse::<(JsonValue, Eos)>().is_ok() {
+    if parser.parse::<(JsonValue, Eos)>().is_some() {
         println!("OK: the input string is a JSON text.");
     } else {
         println!(

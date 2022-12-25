@@ -151,7 +151,7 @@ pub fn derive_parse_trait(input: proc_macro::TokenStream) -> proc_macro::TokenSt
     };
     let expanded = quote! {
         impl #impl_generics #textparse::Parse for #name #ty_generics #where_clause {
-            fn parse(parser: &mut #textparse::Parser) -> #textparse::ParseResult<Self> {
+            fn parse(parser: &mut #textparse::Parser) -> Option<Self> {
                 #parse
             }
 
@@ -182,7 +182,7 @@ fn generate_parse_fun_body(data: &Data) -> TokenStream {
                     quote_spanned! { f.span() => #name: parser.parse()? }
                 });
                 quote! {
-                    Ok(Self{
+                    Some(Self{
                         #(#parse ,)*
                     })
                 }
@@ -192,7 +192,7 @@ fn generate_parse_fun_body(data: &Data) -> TokenStream {
                     quote_spanned! { f.span() => parser.parse()? }
                 });
                 quote! {
-                    Ok(Self(
+                    Some(Self(
                         #(#parse ,)*
                     ))
                 }
@@ -207,13 +207,13 @@ fn generate_parse_fun_body(data: &Data) -> TokenStream {
                 } else {
                     unimplemented!();
                 }
-                quote_spanned! { variant.span() => if let Ok(x) = parser.parse() {
-                    return Ok(Self::#name(x));
+                quote_spanned! { variant.span() => if let Some(x) = parser.parse() {
+                    return Some(Self::#name(x));
                 }}
             });
             quote! {
                 #( #arms )*
-                Err(Default::default())
+                None
             }
         }
         Data::Union(_) => unimplemented!(),

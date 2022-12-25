@@ -9,7 +9,7 @@ use std::{
 pub use textparse_derive::Parse;
 
 pub trait Parse: 'static + Span + Clone + Sized {
-    fn parse(parser: &mut Parser) -> ParseResult<Self>;
+    fn parse(parser: &mut Parser) -> Option<Self>;
 
     fn name() -> Option<fn() -> String> {
         None
@@ -17,7 +17,7 @@ pub trait Parse: 'static + Span + Clone + Sized {
 }
 
 impl<T: Parse> Parse for Box<T> {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
+    fn parse(parser: &mut Parser) -> Option<Self> {
         parser.parse().map(Box::new)
     }
 
@@ -27,20 +27,20 @@ impl<T: Parse> Parse for Box<T> {
 }
 
 impl<T0: Parse, T1: Parse> Parse for (T0, T1) {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
-        Ok((parser.parse()?, parser.parse()?))
+    fn parse(parser: &mut Parser) -> Option<Self> {
+        Some((parser.parse()?, parser.parse()?))
     }
 }
 
 impl<T0: Parse, T1: Parse, T2: Parse> Parse for (T0, T1, T2) {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
-        Ok((parser.parse()?, parser.parse()?, parser.parse()?))
+    fn parse(parser: &mut Parser) -> Option<Self> {
+        Some((parser.parse()?, parser.parse()?, parser.parse()?))
     }
 }
 
 impl<T0: Parse, T1: Parse, T2: Parse, T3: Parse> Parse for (T0, T1, T2, T3) {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
-        Ok((
+    fn parse(parser: &mut Parser) -> Option<Self> {
+        Some((
             parser.parse()?,
             parser.parse()?,
             parser.parse()?,
@@ -50,8 +50,8 @@ impl<T0: Parse, T1: Parse, T2: Parse, T3: Parse> Parse for (T0, T1, T2, T3) {
 }
 
 impl<T0: Parse, T1: Parse, T2: Parse, T3: Parse, T4: Parse> Parse for (T0, T1, T2, T3, T4) {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
-        Ok((
+    fn parse(parser: &mut Parser) -> Option<Self> {
+        Some((
             parser.parse()?,
             parser.parse()?,
             parser.parse()?,
@@ -64,8 +64,8 @@ impl<T0: Parse, T1: Parse, T2: Parse, T3: Parse, T4: Parse> Parse for (T0, T1, T
 impl<T0: Parse, T1: Parse, T2: Parse, T3: Parse, T4: Parse, T5: Parse> Parse
     for (T0, T1, T2, T3, T4, T5)
 {
-    fn parse(parser: &mut Parser) -> ParseResult<Self> {
-        Ok((
+    fn parse(parser: &mut Parser) -> Option<Self> {
+        Some((
             parser.parse()?,
             parser.parse()?,
             parser.parse()?,
@@ -185,7 +185,7 @@ pub struct Parser<'a> {
     position: Position,
     level: usize,
     expected: Expected,
-    memo: HashMap<TypeId, BTreeMap<Position, ParseResult<Box<dyn Any>>>>,
+    memo: HashMap<TypeId, BTreeMap<Position, Option<Box<dyn Any>>>>,
 }
 
 impl<'a> Parser<'a> {
@@ -259,17 +259,17 @@ impl<'a> Parser<'a> {
         (before, after)
     }
 
-    pub fn peek<T: Parse>(&mut self) -> ParseResult<T> {
+    pub fn peek<T: Parse>(&mut self) -> Option<T> {
         let position = self.position;
         let result = self.parse();
         self.position = position;
         result
     }
 
-    pub fn parse<T: Parse>(&mut self) -> ParseResult<T> {
+    pub fn parse<T: Parse>(&mut self) -> Option<T> {
         if let Some(result) = self.get_parse_result::<T>(self.position) {
             let result = result.map(|t| t.clone());
-            if let Ok(t) = &result {
+            if let Some(t) = &result {
                 self.position = t.end_position();
             }
             return result;
@@ -283,7 +283,7 @@ impl<'a> Parser<'a> {
         } else {
             false
         };
-        self.set_parse_result_if_absent::<T>(start, Err(ParseError));
+        self.set_parse_result_if_absent::<T>(start, None);
         if has_name {
             self.level += 1;
         }
@@ -294,7 +294,7 @@ impl<'a> Parser<'a> {
 
         self.set_parse_result(start, result.clone());
 
-        if result.is_err() {
+        if result.is_none() {
             self.position = start;
         }
         result
@@ -310,8 +310,8 @@ impl<'a> Parser<'a> {
             .into_iter()
             .flat_map(|map| {
                 map.iter().filter_map(|(position, result)| match result {
-                    Ok(t) => Some((*position, t.downcast_ref::<T>().expect("unreachable"))),
-                    Err(_) => None,
+                    Some(t) => Some((*position, t.downcast_ref::<T>().expect("unreachable"))),
+                    None => None,
                 })
             })
     }
@@ -338,14 +338,14 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn set_parse_result<T: Parse>(&mut self, position: Position, result: ParseResult<T>) {
+    fn set_parse_result<T: Parse>(&mut self, position: Position, result: Option<T>) {
         self.memo
             .entry(TypeId::of::<T>())
             .or_default()
             .insert(position, result.map(|t| Box::new(t) as Box<dyn Any>));
     }
 
-    fn set_parse_result_if_absent<T: Parse>(&mut self, position: Position, result: ParseResult<T>) {
+    fn set_parse_result_if_absent<T: Parse>(&mut self, position: Position, result: Option<T>) {
         self.memo
             .entry(TypeId::of::<T>())
             .or_default()
@@ -353,18 +353,13 @@ impl<'a> Parser<'a> {
             .or_insert_with(|| result.map(|t| Box::new(t) as Box<dyn Any>));
     }
 
-    fn get_parse_result<T: Parse>(&self, position: Position) -> Option<ParseResult<&T>> {
+    fn get_parse_result<T: Parse>(&self, position: Position) -> Option<Option<&T>> {
         self.memo
             .get(&TypeId::of::<T>())
             .and_then(|map| map.get(&position))
             .map(|result| match result {
-                Ok(t) => Ok(t.downcast_ref::<T>().expect("unreachable")),
-                Err(e) => Err(*e),
+                Some(t) => Some(t.downcast_ref::<T>().expect("unreachable")),
+                None => None,
             })
     }
 }
-
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ParseError;
-
-pub type ParseResult<T> = Result<T, ParseError>;
