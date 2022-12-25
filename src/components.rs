@@ -2,16 +2,10 @@
 use crate::{Parse, ParseError, ParseResult, Parser, Position, Span};
 use std::marker::PhantomData;
 
-/// An empty item.
+/// Empty item.
 #[derive(Debug, Clone, Copy, Span)]
 pub struct Empty {
     position: Position,
-}
-
-impl Empty {
-    const fn new(position: Position) -> Self {
-        Self { position }
-    }
 }
 
 impl Parse for Empty {
@@ -22,13 +16,14 @@ impl Parse for Empty {
     }
 }
 
-// TODO: select longer
+/// Either `A` or `B`.
 #[derive(Debug, Clone, Copy, Span, Parse)]
 pub enum Either<A, B> {
     A(A),
     B(B),
 }
 
+/// One of `A`, `B`, or `C`.
 #[derive(Debug, Clone, Copy, Span, Parse)]
 pub enum OneOfThree<A, B, C> {
     A(A),
@@ -36,6 +31,7 @@ pub enum OneOfThree<A, B, C> {
     C(C),
 }
 
+/// One of `A`, `B`, `C`, or `D`.
 #[derive(Debug, Clone, Copy, Span, Parse)]
 pub enum OneOfFour<A, B, C, D> {
     A(A),
@@ -44,18 +40,12 @@ pub enum OneOfFour<A, B, C, D> {
     D(D),
 }
 
+/// Optional item.
 #[derive(Debug, Clone, Copy, Span)]
 pub struct Maybe<T>(Either<T, Empty>);
 
 impl<T> Maybe<T> {
-    pub const fn some(value: T) -> Self {
-        Self(Either::A(value))
-    }
-
-    pub const fn none(position: Position) -> Self {
-        Self(Either::B(Empty::new(position)))
-    }
-
+    /// Returns `Some(T)` if the item exists, otherwise `None`.
     pub fn get(&self) -> Option<&T> {
         if let Either::A(t) = &self.0 {
             Some(t)
@@ -71,6 +61,7 @@ impl<T: Parse> Parse for Maybe<T> {
     }
 }
 
+/// Indicating to continue parsing while `T::parse()` is succeeded.
 #[derive(Debug, Span)]
 pub struct While<T> {
     start_position: Position,
@@ -103,7 +94,8 @@ impl<T> Clone for While<T> {
 
 impl<T> Copy for While<T> {}
 
-#[derive(Debug, Clone, Span)]
+/// A whitespace ([`char::is_ascii_whitespace()`]).
+#[derive(Debug, Clone, Copy, Span)]
 pub struct Whitespace {
     start_position: Position,
     end_position: Position,
@@ -185,6 +177,7 @@ impl<const T: char, const NAMED: bool> Parse for Char<T, NAMED> {
     }
 }
 
+/// A specified string (characters).
 #[derive(Debug, Clone, Copy, Span)]
 pub struct Str<
     const C0: char = '\0',
@@ -285,23 +278,28 @@ impl<Item: Parse, Delimiter: Parse> Parse for NonEmptyItems<Item, Delimiter> {
     }
 }
 
+/// Variable length items split by delimiters.
 #[derive(Debug, Clone, Span, Parse)]
 pub struct Items<Item, Delimiter>(Maybe<NonEmptyItems<Item, Delimiter>>);
 
 impl<Item, Delimiter> Items<Item, Delimiter> {
+    /// Returns items.
     pub fn items(&self) -> &[Item] {
         self.0.get().map_or(&[], |t| t.items())
     }
 
+    /// Returns delimiters.
     pub fn delimiters(&self) -> &[Delimiter] {
         self.0.get().map_or(&[], |t| t.delimiters())
     }
 }
 
-#[derive(Debug, Clone, Span)]
+/// Non-empty item.
+#[derive(Debug, Clone, Copy, Span)]
 pub struct NonEmpty<T>(T);
 
 impl<T> NonEmpty<T> {
+    /// Returns the item.
     pub fn get(&self) -> &T {
         &self.0
     }
@@ -340,11 +338,23 @@ impl Parse for Eos {
     }
 }
 
-#[derive(Debug, Clone)]
+/// Not a specified item.
+#[derive(Debug)]
 pub struct Not<T> {
     position: Position,
     _item: PhantomData<T>,
 }
+
+impl<T> Clone for Not<T> {
+    fn clone(&self) -> Self {
+        Self {
+            position: self.position,
+            _item: self._item,
+        }
+    }
+}
+
+impl<T> Copy for Not<T> {}
 
 impl<T> Span for Not<T> {
     fn start_position(&self) -> Position {
