@@ -8,7 +8,7 @@ use std::{
 
 pub use textparse_derive::Parse;
 
-/// This traits allows for parsing an item from text.
+/// This trait allows for parsing an item from text.
 pub trait Parse: 'static + Span + Clone + Sized {
     /// Parses an item.
     ///

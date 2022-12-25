@@ -18,6 +18,7 @@ impl Parse for Empty {
 
 /// Either `A` or `B`.
 #[derive(Debug, Clone, Copy, Span, Parse)]
+#[allow(missing_docs)]
 pub enum Either<A, B> {
     A(A),
     B(B),
@@ -25,6 +26,7 @@ pub enum Either<A, B> {
 
 /// One of `A`, `B`, or `C`.
 #[derive(Debug, Clone, Copy, Span, Parse)]
+#[allow(missing_docs)]
 pub enum OneOfThree<A, B, C> {
     A(A),
     B(B),
@@ -33,6 +35,7 @@ pub enum OneOfThree<A, B, C> {
 
 /// One of `A`, `B`, `C`, or `D`.
 #[derive(Debug, Clone, Copy, Span, Parse)]
+#[allow(missing_docs)]
 pub enum OneOfFour<A, B, C, D> {
     A(A),
     B(B),
