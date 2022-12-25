@@ -15,7 +15,7 @@ The following code implements a parser for a JSON subset format:
 ```rust
 use textparse::{
     components::{AnyChar, Char, Digit, Eos, Items, NonEmpty, Not, Str, While, Whitespace},
-    Parse, ParseResult, Parser, Position, Span,
+    Parse, Parser, Position, Span,
 };
 
 #[derive(Clone, Span, Parse)]
