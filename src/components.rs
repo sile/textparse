@@ -103,17 +103,13 @@ pub struct Whitespace {
 
 impl Parse for Whitespace {
     fn parse(parser: &mut Parser) -> Option<Self> {
+        let start_position = parser.current_position();
         parser
-            .remaining_text()
-            .chars()
-            .next()
+            .read_char()
             .filter(|c| c.is_ascii_whitespace())
-            .map(|_| {
-                let (start_position, end_position) = parser.consume_chars(1);
-                Self {
-                    start_position,
-                    end_position,
-                }
+            .map(|_| Self {
+                start_position,
+                end_position: parser.current_position(),
             })
     }
 }
@@ -155,12 +151,10 @@ pub struct Char<const T: char, const NAMED: bool = true> {
 
 impl<const T: char, const NAMED: bool> Parse for Char<T, NAMED> {
     fn parse(parser: &mut Parser) -> Option<Self> {
-        parser.peek_char().filter(|c| *c == T).map(|_| {
-            let (start_position, end_position) = parser.consume_bytes(T.len_utf8());
-            Self {
-                start_position,
-                end_position,
-            }
+        let start_position = parser.current_position();
+        parser.read_char().filter(|c| *c == T).map(|_| Self {
+            start_position,
+            end_position: parser.current_position(),
         })
     }
 
@@ -400,14 +394,14 @@ impl<const RADIX: u8> Digit<RADIX> {
 
 impl<const RADIX: u8> Parse for Digit<RADIX> {
     fn parse(parser: &mut Parser) -> Option<Self> {
+        let start_position = parser.current_position();
         let value = parser
-            .peek_char()
+            .read_char()
             .and_then(|c| c.to_digit(u32::from(RADIX)))? as u8;
-        let (start_position, end_position) = parser.consume_chars(1);
         Some(Self {
             start_position,
             value,
-            end_position,
+            end_position: parser.current_position(),
         })
     }
 }

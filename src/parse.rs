@@ -8,9 +8,14 @@ use std::{
 
 pub use textparse_derive::Parse;
 
+/// This traits allows for parsing an item from text.
 pub trait Parse: 'static + Span + Clone + Sized {
+    /// Parses an item.
+    ///
+    /// `None` means parse failure.
     fn parse(parser: &mut Parser) -> Option<Self>;
 
+    /// Name of the item to be parsed.
     fn name() -> Option<fn() -> String> {
         None
     }
@@ -149,7 +154,7 @@ impl<'a> ErrorMessageBuilder<'a> {
 }
 
 #[derive(Debug, Default)]
-pub struct Expected {
+struct Expected {
     position: Position,
     level: usize,
     expected_items: HashMap<TypeId, fn() -> String>,
@@ -170,15 +175,12 @@ impl Expected {
         self.expected_items.insert(TypeId::of::<T>(), name);
     }
 
-    pub fn position(&self) -> Position {
-        self.position
-    }
-
     pub fn items(&self) -> impl '_ + Iterator<Item = String> {
         self.expected_items.values().map(|f| f())
     }
 }
 
+/// Parser.
 #[derive(Debug)]
 pub struct Parser<'a> {
     text: Cow<'a, str>,
@@ -189,6 +191,7 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
+    /// Makes a new [`Parser`] instance.
     pub fn new(text: &'a str) -> Self {
         Self {
             text: Cow::Borrowed(text),
@@ -199,76 +202,45 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn error_message_builder(&self) -> ErrorMessageBuilder {
-        ErrorMessageBuilder::new(self.text(), &self.expected)
-    }
-
+    /// Returns the current position.
     pub fn current_position(&self) -> Position {
         self.position
     }
 
+    /// Returns `true` if the parser has reached EOS, otherwise `false`.
     pub fn is_eos(&self) -> bool {
         self.text.len() == self.position.get()
     }
 
-    pub fn into_owned(self) -> Parser<'static> {
-        Parser {
-            text: Cow::Owned(self.text.into_owned()),
-            position: self.position,
-            level: self.level,
-            expected: self.expected,
-            memo: self.memo,
-        }
-    }
-
+    /// Returns the full text.
     pub fn text(&self) -> &str {
         self.text.borrow()
     }
 
+    /// Returns the remaining, un-parsed text.
     pub fn remaining_text(&self) -> &str {
         &self.text[self.position.get()..]
     }
 
+    /// Peeks the next character.
     pub fn peek_char(&self) -> Option<char> {
         self.remaining_text().chars().next()
     }
 
+    /// Reads the next character.
     pub fn read_char(&mut self) -> Option<char> {
         if let Some(c) = self.peek_char() {
-            self.consume_bytes(c.len_utf8());
+            self.position = Position::new(self.position.get() + c.len_utf8());
             Some(c)
         } else {
             None
         }
     }
 
-    pub fn consume_chars(&mut self, n: usize) -> (Position, Position) {
-        let n = self
-            .remaining_text()
-            .chars()
-            .take(n)
-            .map(|c| c.len_utf8())
-            .sum();
-        self.consume_bytes(n)
-    }
-
-    pub fn consume_bytes(&mut self, n: usize) -> (Position, Position) {
-        let before = self.position;
-        self.position = Position::new(std::cmp::min(self.text.len(), self.position.get() + n));
-        let after = self.position;
-        (before, after)
-    }
-
-    pub fn peek<T: Parse>(&mut self) -> Option<T> {
-        let position = self.position;
-        let result = self.parse();
-        self.position = position;
-        result
-    }
-
+    /// Parses an item.
     pub fn parse<T: Parse>(&mut self) -> Option<T> {
         if let Some(result) = self.get_parse_result::<T>(self.position) {
-            let result = result.map(|t| t.clone());
+            let result = result.cloned();
             if let Some(t) = &result {
                 self.position = t.end_position();
             }
@@ -300,20 +272,34 @@ impl<'a> Parser<'a> {
         result
     }
 
-    pub fn expected(&self) -> &Expected {
-        &self.expected
-    }
-
+    /// Returns parsed items of which type is `T`.
     pub fn parsed_items<T: Parse>(&self) -> impl Iterator<Item = (Position, &T)> {
         self.memo
             .get(&TypeId::of::<T>())
             .into_iter()
             .flat_map(|map| {
-                map.iter().filter_map(|(position, result)| match result {
-                    Some(t) => Some((*position, t.downcast_ref::<T>().expect("unreachable"))),
-                    None => None,
+                map.iter().filter_map(|(position, result)| {
+                    result
+                        .as_ref()
+                        .map(|item| (*position, item.downcast_ref::<T>().expect("unreachable")))
                 })
             })
+    }
+
+    // TODO
+    pub fn error_message_builder(&self) -> ErrorMessageBuilder {
+        ErrorMessageBuilder::new(self.text(), &self.expected)
+    }
+
+    // TODO: private(?)
+    pub fn into_owned(self) -> Parser<'static> {
+        Parser {
+            text: Cow::Owned(self.text.into_owned()),
+            position: self.position,
+            level: self.level,
+            expected: self.expected,
+            memo: self.memo,
+        }
     }
 
     fn update_expected<T: Parse>(&mut self, name: fn() -> String) {
@@ -328,13 +314,6 @@ impl<'a> Parser<'a> {
                 self.expected = Expected::new::<T>(self.position, self.level, name);
             }
             _ => {}
-        }
-    }
-
-    pub fn rollback<T: Parse>(&mut self, parsed: T) {
-        self.position = parsed.start_position();
-        if let Some(name) = T::name() {
-            self.update_expected::<T>(name);
         }
     }
 
@@ -357,9 +336,10 @@ impl<'a> Parser<'a> {
         self.memo
             .get(&TypeId::of::<T>())
             .and_then(|map| map.get(&position))
-            .map(|result| match result {
-                Some(t) => Some(t.downcast_ref::<T>().expect("unreachable")),
-                None => None,
+            .map(|result| {
+                result
+                    .as_ref()
+                    .map(|item| item.downcast_ref::<T>().expect("unreachable"))
             })
     }
 }

@@ -4,5 +4,5 @@ pub mod components;
 mod parse;
 mod span;
 
-pub use self::parse::{Expected, Parse, Parser};
+pub use self::parse::{Parse, Parser};
 pub use self::span::{Position, Span};
