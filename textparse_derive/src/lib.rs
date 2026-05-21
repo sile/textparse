@@ -87,7 +87,7 @@ fn generate_span_end_position_method_body(data: &Data) -> TokenStream {
     match data {
         Data::Struct(data) => match &data.fields {
             Fields::Named(fields) => {
-                let Some(name) = fields.named.iter().last().map(|f| &f.ident) else {
+                let Some(name) = fields.named.iter().next_back().map(|f| &f.ident) else {
                     panic!();
                 };
                 quote! { self.#name.end_position() }
