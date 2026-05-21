@@ -87,11 +87,7 @@ impl<T: Parse> Parse for While<T> {
 
 impl<T> Clone for While<T> {
     fn clone(&self) -> Self {
-        Self {
-            start_position: self.start_position,
-            _phantom: self._phantom,
-            end_position: self.end_position,
-        }
+        *self
     }
 }
 
@@ -339,10 +335,7 @@ pub struct Not<T> {
 
 impl<T> Clone for Not<T> {
     fn clone(&self) -> Self {
-        Self {
-            position: self.position,
-            _item: self._item,
-        }
+        *self
     }
 }
 
